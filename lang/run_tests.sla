@@ -1,0 +1,221 @@
+// 衡 · Heng —— lang 线对拍测试 harness（SLA 实现，零 Python）
+// 用法：run_tests <heng_parse 可执行文件路径> <examples 目录>
+// 逐例运行解析器，比较退出码与 stdout 全文；全过退出 0，否则退出 1。
+// 构建/运行方式见同目录 README.md。
+
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/process.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+@import "sa_std/vec.sa"
+@import "argv_fill.sa"
+
+fn byte_at(p: ptr, i: u64) -> u8 { let b: u8 = 0; PTR_BYTE_AT(b, p, i); return b; }
+
+fn oput(b: &Vec<u8>, c: u8) {
+    b.push(c);
+}
+
+fn oput_str(b: &Vec<u8>, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        oput(b, byte_at(p, i));
+        i = i + 1;
+    }
+}
+
+fn oput_u64(b: &Vec<u8>, v0: u64) {
+    let tmp = [0u8; 20];
+    let tn: u64 = 0;
+    let v: u64 = v0;
+    if v == 0 { oput(b, 48); return; };
+    while v > 0 {
+        tmp[tn] = (v % 10) as u8 + 48;
+        tn = tn + 1;
+        v = v / 10;
+    }
+    let k: u64 = 0;
+    while k < tn {
+        oput(b, tmp[tn - 1 - k]);
+        k = k + 1;
+    }
+}
+
+fn print_vec(b: &Vec<u8>) {
+    let n: u64 = len(b);
+    let i: u64 = 0;
+    let chunk = [0u8; 4096];
+    while i < n {
+        let m: u64 = 0;
+        while m < 4096 {
+            if i + m >= n { break; };
+            chunk[m] = b[i + m];
+            m = m + 1;
+        }
+        if m > 0 { sa_print_bytes(&chunk, m); };
+        i = i + m;
+    }
+}
+
+fn bytes_eq(pa: ptr, na: u64, pb: ptr, nb: u64) -> bool {
+    if na != nb { return false; };
+    let i: u64 = 0;
+    while i < na {
+        if byte_at(pa, i) != byte_at(pb, i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// 路径构建（&PathB 借用修改；结构体按值传递会丢数组字段写，不可用）
+struct PathB {
+    bytes: [u8; 1024], len: u64,
+};
+
+fn papp(b: &PathB, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        b.bytes[b.len] = byte_at(p, i);
+        b.len = b.len + 1;
+        i = i + 1;
+    }
+}
+
+// 汇报一例结果
+fn report(ok: bool, name_p: ptr, name_n: u64, got_code: u32, want_code: u32, fails: &u64) {
+    let v: Vec<u8> = Vec::new();
+    if ok {
+        oput_str(&v, STR_PTR("PASS "), STR_LEN("PASS ") as u64);
+    } else {
+        oput_str(&v, STR_PTR("FAIL "), STR_LEN("FAIL ") as u64);
+        let f0: u64 = *fails; *fails = f0 + 1;
+    };
+    oput_str(&v, name_p, name_n);
+    if !ok {
+        oput_str(&v, STR_PTR(" (exit="), STR_LEN(" (exit=") as u64);
+        oput_u64(&v, got_code as u64);
+        oput_str(&v, STR_PTR(" want="), STR_LEN(" want=") as u64);
+        oput_u64(&v, want_code as u64);
+        oput_str(&v, STR_PTR(")"), STR_LEN(")") as u64);
+    };
+    oput(&v, 10);
+    print_vec(&v);
+}
+
+// 跑一例文件对拍：exe + 输入文件，stdout 与预期文件全文字节比较，退出码比较
+fn run_case(exe_p: ptr, exe_n: u64, dir_p: ptr, dir_n: u64, name_p: ptr, name_n: u64, ext_p: ptr, ext_n: u64, want_code: u32, fails: &u64) {
+    let ib = PathB { bytes: [0u8; 1024], len: 0 };
+    papp(&ib, dir_p, dir_n);
+    papp(&ib, STR_PTR("/"), STR_LEN("/") as u64);
+    papp(&ib, name_p, name_n);
+    papp(&ib, STR_PTR(".heng"), STR_LEN(".heng") as u64);
+    let eb = PathB { bytes: [0u8; 1024], len: 0 };
+    papp(&eb, dir_p, dir_n);
+    papp(&eb, STR_PTR("/"), STR_LEN("/") as u64);
+    papp(&eb, name_p, name_n);
+    papp(&eb, STR_PTR(".expected"), STR_LEN(".expected") as u64);
+    papp(&eb, ext_p, ext_n);
+    let argv = [0u64, 0u64, 0u64, 0u64];
+    ARGV_SET0(&argv, exe_p, exe_n);
+    ARGV_SET1(&argv, &ib.bytes, ib.len);
+    let code: u32 = 0;
+    let so: u64 = 0;
+    let se: u64 = 0;
+    let rc: i32 = sa_std_process_exec_capture(&argv, 2, &code, &so, &se);
+    if rc != 0 {
+        report(false, name_p, name_n, 999, want_code, fails);
+        return;
+    };
+    let efbuf: u64 = 0;
+    if sa_std_fs_read_to_string(&eb.bytes, eb.len, 4194304, &efbuf) != 0 {
+        report(false, name_p, name_n, 998, want_code, fails);
+        return;
+    };
+    let ok: bool = code == want_code;
+    if ok {
+        let op: ptr = sa_fs_read_buffer_data(so);
+        let on: u64 = sa_fs_read_buffer_len(so);
+        let ep: ptr = sa_fs_read_buffer_data(efbuf);
+        let en: u64 = sa_fs_read_buffer_len(efbuf);
+        ok = bytes_eq(op, on, ep, en);
+    };
+    report(ok, name_p, name_n, code, want_code, fails);
+}
+
+// 跑一例 --hint 对拍：stdout 与预期字面量比较
+fn run_hint(exe_p: ptr, exe_n: u64, sym_p: ptr, sym_n: u64, l_p: ptr, l_n: u64, r_p: ptr, r_n: u64, exp_p: ptr, exp_n: u64, fails: &u64) {
+    let argv = [0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64, 0u64];
+    ARGV_SET0(&argv, exe_p, exe_n);
+    ARGV_SET1(&argv, STR_PTR("--hint"), STR_LEN("--hint") as u64);
+    ARGV_SET2(&argv, sym_p, sym_n);
+    ARGV_SET3(&argv, l_p, l_n);
+    ARGV_SET4(&argv, r_p, r_n);
+    let code: u32 = 0;
+    let so: u64 = 0;
+    let se: u64 = 0;
+    let rc: i32 = sa_std_process_exec_capture(&argv, 5, &code, &so, &se);
+    let ok: bool = false;
+    if rc == 0 {
+        if code == 0 {
+            let op: ptr = sa_fs_read_buffer_data(so);
+            let on: u64 = sa_fs_read_buffer_len(so);
+            ok = bytes_eq(op, on, exp_p, exp_n);
+        };
+    };
+    let v: Vec<u8> = Vec::new();
+    if ok {
+        oput_str(&v, STR_PTR("PASS hint "), STR_LEN("PASS hint ") as u64);
+    } else {
+        oput_str(&v, STR_PTR("FAIL hint "), STR_LEN("FAIL hint ") as u64);
+        let f0: u64 = *fails; *fails = f0 + 1;
+    };
+    oput_str(&v, sym_p, sym_n);
+    oput(&v, 10);
+    print_vec(&v);
+}
+
+fn main() -> i32 {
+    let abuf: u64 = sa_env_args_json();
+    if abuf == 0 { return 2; };
+    let aptr: ptr = sa_env_buffer_data(abuf);
+    let alen: u64 = sa_env_buffer_len(abuf);
+    let args: u64 = sa_json_parse(aptr, alen);
+    if args == 0 { return 2; };
+    let cnt: u64 = 0;
+    if sa_json_value_count(args, &cnt) != 0 { return 2; };
+    if cnt < 3 { println("usage: run_tests <heng_parse> <examples_dir>"); return 2; };
+    let n1: u64 = 0;
+    let n2: u64 = 0;
+    if sa_json_array_get(args, 1, &n1) != 0 { return 2; };
+    if sa_json_array_get(args, 2, &n2) != 0 { return 2; };
+    if sa_json_kind(n1) != 5 { return 2; };
+    if sa_json_kind(n2) != 5 { return 2; };
+    let exe_p: ptr = sa_json_string_ptr(n1);
+    let exe_n: u64 = sa_json_string_len(n1);
+    let dir_p: ptr = sa_json_string_ptr(n2);
+    let dir_n: u64 = sa_json_string_len(n2);
+    let fails: u64 = 0;
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex01_photosynthesis"), STR_LEN("ex01_photosynthesis") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex02_respiration"), STR_LEN("ex02_respiration") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex03_electrolysis"), STR_LEN("ex03_electrolysis") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex04_charcoal"), STR_LEN("ex04_charcoal") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex05_oxygen_lab"), STR_LEN("ex05_oxygen_lab") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex06_neutralization"), STR_LEN("ex06_neutralization") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("ex07_unbalanced"), STR_LEN("ex07_unbalanced") as u64, STR_PTR(".json"), STR_LEN(".json") as u64, 0, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("err01_lowercase"), STR_LEN("err01_lowercase") as u64, STR_PTR(".txt"), STR_LEN(".txt") as u64, 1, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("err02_equals"), STR_LEN("err02_equals") as u64, STR_PTR(".txt"), STR_LEN(".txt") as u64, 1, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("err03_paren"), STR_LEN("err03_paren") as u64, STR_PTR(".txt"), STR_LEN(".txt") as u64, 1, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("err04_plus_lhs"), STR_LEN("err04_plus_lhs") as u64, STR_PTR(".txt"), STR_LEN(".txt") as u64, 1, &fails);
+    run_case(exe_p, exe_n, dir_p, dir_n, STR_PTR("err05_plus_rhs"), STR_LEN("err05_plus_rhs") as u64, STR_PTR(".txt"), STR_LEN(".txt") as u64, 1, &fails);
+    run_hint(exe_p, exe_n, STR_PTR("O"), STR_LEN("O") as u64, STR_PTR("2"), STR_LEN("2") as u64, STR_PTR("1"), STR_LEN("1") as u64, STR_PTR("氧（O）：左边有 2 个，右边只有 1 个，两边不一样多。\n"), STR_LEN("氧（O）：左边有 2 个，右边只有 1 个，两边不一样多。\n") as u64, &fails);
+    run_hint(exe_p, exe_n, STR_PTR("Ca"), STR_LEN("Ca") as u64, STR_PTR("3"), STR_LEN("3") as u64, STR_PTR("3"), STR_LEN("3") as u64, STR_PTR("钙（Ca）：左边有 3 个，右边也有 3 个，两边一样多。\n"), STR_LEN("钙（Ca）：左边有 3 个，右边也有 3 个，两边一样多。\n") as u64, &fails);
+    if fails == 0 {
+        println("ALL PASS (14/14)");
+        return 0;
+    };
+    println("FAILED {} of 14", fails);
+    return 1;
+}

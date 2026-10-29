@@ -1,0 +1,3 @@
+// 例 3：电解水 + 相对分子质量的 value_eq 断言
+2 H2O -> 2 H2 + O2
+assert value_eq "M(H2O)" = 18 g/mol tol 0.5

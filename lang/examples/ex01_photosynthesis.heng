@@ -1,0 +1,7 @@
+// 例 1：光合作用（初中经典）——物种声明 + 已配平方程式 + balanced 断言
+species CO2
+species H2O
+species C6H12O6
+species O2
+6 CO2 + 6 H2O -> C6H12O6 + 6 O2
+assert balanced 6 CO2 + 6 H2O -> C6H12O6 + 6 O2

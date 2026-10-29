@@ -1,0 +1,1052 @@
+// 衡 · Heng —— L0/L1 语言面解析器 v0.1（lang 线）
+// 语法见同目录 GRAMMAR.md；输出契约见仓根 INTERFACE.md。
+// 用法：
+//   heng_parse <file.heng>            成功输出 JSON（退出码 0）；解析失败输出教学诊断（退出码 1）
+//   heng_parse --hint <元素> <左> <右>  渲染 check 层 balance_delta 的教学句子（衔接点）
+
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+@import "sa_std/vec.sa"
+
+// ---- 错误码（与 GRAMMAR.md §6 一一对应）----
+fn err_lex() -> i64 { return 1; }
+fn err_lower() -> i64 { return 2; }
+fn err_species() -> i64 { return 3; }
+fn err_paren_open() -> i64 { return 4; }
+fn err_paren_close() -> i64 { return 5; }
+fn err_count() -> i64 { return 6; }
+fn err_arrow() -> i64 { return 7; }
+fn err_arrow_eq() -> i64 { return 8; }
+fn err_plus() -> i64 { return 9; }
+fn err_side() -> i64 { return 10; }
+fn err_tail() -> i64 { return 11; }
+fn err_coef() -> i64 { return 12; }
+fn err_charge() -> i64 { return 13; }
+fn err_assert() -> i64 { return 14; }
+fn err_eqsign() -> i64 { return 15; }
+fn err_string() -> i64 { return 16; }
+fn err_tol() -> i64 { return 17; }
+fn err_unit() -> i64 { return 18; }
+fn err_stmt() -> i64 { return 19; }
+fn err_complex() -> i64 { return 20; }
+
+struct CMap {
+    e: [u64; 64], c: [u64; 64], n: u64,
+};
+
+struct St {
+    fptr: ptr, flen: u64,
+    cp: u64,
+    ls: u64, le: u64, lno: u64, raw_ls: u64,
+    e_has: bool, e_kind: i64, e_pos: u64,
+    el_start: [u64; 96], el_len: [u64; 96], el_n: u64,
+    sp_fs: [u64; 192], sp_fl: [u64; 192], sp_chg: [i64; 192],
+    sp_cstart: [u64; 192], sp_cn: [u64; 192], sp_n: u64,
+    cp_el: [u64; 2048], cp_ct: [u64; 2048], cp_n: u64,
+    eq_n: u64, as_n: u64,
+    o_sp: Vec<u8>, o_eq: Vec<u8>, o_as: Vec<u8>, o_dg: Vec<u8>,
+};
+
+fn byte_at(p: ptr, i: u64) -> u8 { let b: u8 = 0; PTR_BYTE_AT(b, p, i); return b; }
+
+fn is_upper(c: u8) -> bool { return c >= 65 && c <= 90; }
+fn is_lower(c: u8) -> bool { return c >= 97 && c <= 122; }
+fn is_digit(c: u8) -> bool { return c >= 48 && c <= 57; }
+fn is_space(c: u8) -> bool { return c == 32 || c == 9; }
+
+fn fail(st: &St, kind: i64, pos: u64) -> bool {
+    st.e_has = true;
+    st.e_kind = kind;
+    st.e_pos = pos;
+    return false;
+}
+
+// ---- 输出累积（Vec 动态增长；输入文件上限 4MiB 在 main 处强制）----
+fn oput(b: &Vec<u8>, c: u8) {
+    b.push(c);
+}
+
+fn oput_str(b: &Vec<u8>, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        oput(b, byte_at(p, i));
+        i = i + 1;
+    }
+}
+
+// 按 (基址, 偏移, 长度) 写出输入 span —— SLA 无 ptr+int 算术，一律索引读
+fn oput_span(b: &Vec<u8>, p: ptr, off: u64, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        oput(b, byte_at(p, off + i));
+        i = i + 1;
+    }
+}
+
+fn oput_u64(b: &Vec<u8>, v0: u64) {
+    let tmp = [0u8; 20];
+    let tn: u64 = 0;
+    let v: u64 = v0;
+    if v == 0 { oput(b, 48); return; };
+    while v > 0 {
+        tmp[tn] = (v % 10) as u8 + 48;
+        tn = tn + 1;
+        v = v / 10;
+    }
+    let k: u64 = 0;
+    while k < tn {
+        oput(b, tmp[tn - 1 - k]);
+        k = k + 1;
+    }
+}
+
+fn oput_i64(b: &Vec<u8>, v: i64) {
+    if v < 0 {
+        oput(b, 45);
+        oput_u64(b, (0 - v) as u64);
+    } else {
+        oput_u64(b, v as u64);
+    };
+}
+
+fn print_vec(b: &Vec<u8>) {
+    let n: u64 = len(b);
+    let i: u64 = 0;
+    let chunk = [0u8; 4096];
+    while i < n {
+        let m: u64 = 0;
+        while m < 4096 {
+            if i + m >= n { break; };
+            chunk[m] = b[i + m];
+            m = m + 1;
+        }
+        if m > 0 { sa_print_bytes(&chunk, m); };
+        i = i + m;
+    }
+}
+
+fn gcd_u(a0: u64, b0: u64) -> u64 {
+    let a: u64 = a0;
+    let b: u64 = b0;
+    while b > 0 {
+        let t: u64 = a % b;
+        a = b;
+        b = t;
+    }
+    return a;
+}
+
+// 输入 span [s, s+n) 与 (kp, kn) 原始字节比较
+fn span_eq_raw(st: &St, s: u64, n: u64, kp: ptr, kn: u64) -> bool {
+    if n != kn { return false; };
+    let i: u64 = 0;
+    while i < n {
+        if byte_at(st.fptr, s + i) != byte_at(kp, i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn span_eq_span(st: &St, a: u64, an: u64, b: u64, bn: u64) -> bool {
+    if an != bn { return false; };
+    let i: u64 = 0;
+    while i < an {
+        if byte_at(st.fptr, a + i) != byte_at(st.fptr, b + i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn skip_spaces(st: &St) {
+    while st.cp < st.le {
+        if !is_space(byte_at(st.fptr, st.cp)) { return; };
+        st.cp = st.cp + 1;
+    }
+}
+
+// 当前行剩余是否以关键字 (kp, kn) 开头（关键字后须为空格或行尾）
+fn at_keyword(st: &St, kp: ptr, kn: u64) -> bool {
+    if st.cp + kn > st.le { return false; };
+    if !span_eq_raw(st, st.cp, kn, kp, kn) { return false; };
+    if st.cp + kn == st.le { return true; };
+    return is_space(byte_at(st.fptr, st.cp + kn));
+}
+
+// ---- 元素登记（符号原文 span 身份）----
+fn intern_element(st: &St, s: u64, n: u64) -> u64 {
+    let i: u64 = 0;
+    while i < st.el_n {
+        if span_eq_span(st, st.el_start[i], st.el_len[i], s, n) { return i; };
+        i = i + 1;
+    }
+    if st.el_n >= 96 { return 9999; };
+    st.el_start[st.el_n] = s;
+    st.el_len[st.el_n] = n;
+    st.el_n = st.el_n + 1;
+    return st.el_n - 1;
+}
+
+fn cmap_add(st: &St, m: &CMap, e: u64, cnt: u64) -> bool {
+    let i: u64 = 0;
+    while i < m.n {
+        if m.e[i] == e { m.c[i] = m.c[i] + cnt; return true; };
+        i = i + 1;
+    }
+    if m.n >= 64 { return fail(st, err_complex(), st.cp); };
+    m.e[m.n] = e;
+    m.c[m.n] = cnt;
+    m.n = m.n + 1;
+    return true;
+}
+
+// 解析紧跟的角标数字；无数字时 present=false、out=0；数字串过长报 E_COUNT
+fn parse_count(st: &St, end: u64, out: &u64) -> bool {
+    let v: u64 = 0;
+    let nd: u64 = 0;
+    while st.cp < end {
+        let c: u8 = byte_at(st.fptr, st.cp);
+        if !is_digit(c) { break; };
+        v = v * 10 + (c - 48) as u64;
+        nd = nd + 1;
+        st.cp = st.cp + 1;
+        if nd > 9 { fail(st, err_count(), st.cp); return true; };
+    }
+    *out = v;
+    return nd > 0;
+}
+
+// 在 [cp, end) 内解析一串 factor，把组成累加进 m；遇 ')' 停（不消费）
+fn comp_seq(st: &St, end: u64, m: &CMap) -> bool {
+    while st.cp < end {
+        let c: u8 = byte_at(st.fptr, st.cp);
+        if c == 41 { return true; };
+        if c == 40 {
+            let open_pos: u64 = st.cp;
+            st.cp = st.cp + 1;
+            let sub = CMap { e: [0u64; 64], c: [0u64; 64], n: 0 };
+            if !comp_seq(st, end, &sub) { return false; };
+            if st.cp >= end { return fail(st, err_paren_open(), open_pos); };
+            if byte_at(st.fptr, st.cp) != 41 { return fail(st, err_paren_open(), open_pos); };
+            st.cp = st.cp + 1;
+            let cnt: u64 = 0;
+            let has: bool = parse_count(st, end, &cnt);
+            if st.e_has { return false; };
+            if !has { cnt = 1; };
+            let i: u64 = 0;
+            while i < sub.n {
+                if !cmap_add(st, m, sub.e[i], sub.c[i] * cnt) { return false; };
+                i = i + 1;
+            }
+        } else {
+            if is_lower(c) { return fail(st, err_lower(), st.cp); };
+            if is_digit(c) { return fail(st, err_count(), st.cp); };
+            if !is_upper(c) { return fail(st, err_lex(), st.cp); };
+            let es: u64 = st.cp;
+            st.cp = st.cp + 1;
+            if st.cp < end {
+                if is_lower(byte_at(st.fptr, st.cp)) { st.cp = st.cp + 1; };
+            };
+            let ei: u64 = intern_element(st, es, st.cp - es);
+            if ei >= 9999 { return fail(st, err_complex(), es); };
+            let cnt2: u64 = 0;
+            let has2: bool = parse_count(st, end, &cnt2);
+            if st.e_has { return false; };
+            if !has2 { cnt2 = 1; };
+            if !cmap_add(st, m, ei, cnt2) { return false; };
+        };
+    }
+    return true;
+}
+
+// byte(j) 是紧贴化学式末尾的 '+'/'-'：判它是否为电荷符号（GRAMMAR §3 消歧规则）
+fn decide_charge(st: &St, j: u64) -> bool {
+    let k: u64 = j + 1;
+    if k >= st.le { return true; };
+    let ck: u8 = byte_at(st.fptr, k);
+    if ck == 62 { return false; };
+    if is_space(ck) { return true; };
+    if ck == 43 { return true; };
+    if ck == 45 { return true; };
+    if is_upper(ck) { return false; };
+    if ck == 40 { return false; };
+    return true;
+}
+
+// 扫描一个 species_ref（cp 已定位在化学式首字节），登记物种，out_idx 返回物种序号
+fn scan_species(st: &St, out_idx: &u64) -> bool {
+    let fstart: u64 = st.cp;
+    if fstart >= st.le { return fail(st, err_species(), fstart); };
+    let c0: u8 = byte_at(st.fptr, fstart);
+    if is_lower(c0) { return fail(st, err_lower(), fstart); };
+    if is_digit(c0) { return fail(st, err_count(), fstart); };
+    if !is_upper(c0) {
+        if c0 != 40 { return fail(st, err_lex(), fstart); };
+    };
+    // 本体扫描：字母/数字/括号的最大连续段
+    let j: u64 = fstart;
+    while j < st.le {
+        let c: u8 = byte_at(st.fptr, j);
+        if is_upper(c) || is_lower(c) || is_digit(c) || c == 40 || c == 41 {
+            j = j + 1;
+        } else {
+            break;
+        };
+    }
+    let body_end: u64 = j;
+    let bend: u64 = body_end;
+    let charge: i64 = 0;
+    let tok_end: u64 = j;
+    if j < st.le {
+        let cj: u8 = byte_at(st.fptr, j);
+        if cj == 94 {
+            // 写法甲：^ [digits] (+|-)
+            j = j + 1;
+            let ds: u64 = j;
+            while j < st.le {
+                if !is_digit(byte_at(st.fptr, j)) { break; };
+                j = j + 1;
+            }
+            let chn: u64 = 1;
+            if j > ds {
+                chn = 0;
+                let t: u64 = ds;
+                while t < j {
+                    chn = chn * 10 + (byte_at(st.fptr, t) - 48) as u64;
+                    t = t + 1;
+                }
+            };
+            if j >= st.le { return fail(st, err_charge(), j); };
+            let sg: u8 = byte_at(st.fptr, j);
+            if sg == 43 {
+                charge = chn as i64;
+            } else {
+                if sg != 45 { return fail(st, err_charge(), j); };
+                charge = 0 - (chn as i64);
+            };
+            j = j + 1;
+            tok_end = j;
+        } else {
+            if cj == 43 || cj == 45 {
+                if decide_charge(st, j) {
+                    let chn: u64 = 1;
+                    // 本体尾部数字串：本体是单个元素时才算电荷数
+                    let ds: u64 = bend;
+                    while ds > fstart {
+                        if !is_digit(byte_at(st.fptr, ds - 1)) { break; };
+                        ds = ds - 1;
+                    }
+                    if ds < bend {
+                        let plen: u64 = ds - fstart;
+                        let single: bool = false;
+                        if plen == 1 {
+                            if is_upper(byte_at(st.fptr, fstart)) { single = true; };
+                        };
+                        if plen == 2 {
+                            if is_upper(byte_at(st.fptr, fstart)) {
+                                if is_lower(byte_at(st.fptr, fstart + 1)) { single = true; };
+                            };
+                        };
+                        if single {
+                            chn = 0;
+                            let t: u64 = ds;
+                            while t < bend {
+                                chn = chn * 10 + (byte_at(st.fptr, t) - 48) as u64;
+                                t = t + 1;
+                            }
+                            bend = ds;
+                        };
+                    };
+                    if cj == 43 {
+                        charge = chn as i64;
+                    } else {
+                        charge = 0 - (chn as i64);
+                    };
+                    tok_end = j + 1;
+                };
+            };
+        };
+    };
+    // 登记（同本体同电荷去重）
+    let i: u64 = 0;
+    while i < st.sp_n {
+        if st.sp_chg[i] == charge {
+            if span_eq_span(st, st.sp_fs[i], st.sp_fl[i], fstart, bend - fstart) {
+                *out_idx = i;
+                st.cp = tok_end;
+                return true;
+            };
+        };
+        i = i + 1;
+    }
+    if st.sp_n >= 192 { return fail(st, err_complex(), fstart); };
+    // 组成解析（在本体 span 上重走一遍）
+    st.cp = fstart;
+    let m = CMap { e: [0u64; 64], c: [0u64; 64], n: 0 };
+    if !comp_seq(st, bend, &m) { return false; };
+    if st.cp != bend { return fail(st, err_paren_close(), st.cp); };
+    let idx: u64 = st.sp_n;
+    st.sp_fs[idx] = fstart;
+    st.sp_fl[idx] = bend - fstart;
+    st.sp_chg[idx] = charge;
+    st.sp_cstart[idx] = st.cp_n;
+    st.sp_cn[idx] = m.n;
+    let t: u64 = 0;
+    while t < m.n {
+        if st.cp_n >= 2048 { return fail(st, err_complex(), fstart); };
+        st.cp_el[st.cp_n] = m.e[t];
+        st.cp_ct[st.cp_n] = m.c[t];
+        st.cp_n = st.cp_n + 1;
+        t = t + 1;
+    }
+    st.sp_n = st.sp_n + 1;
+    *out_idx = idx;
+    st.cp = tok_end;
+    return true;
+}
+
+// 解析系数/数值（整数或小数）为有理数 num/den（已约分）；cp 须停在数字上
+fn parse_number_rat(st: &St, num: &u64, den: &u64) -> bool {
+    let start: u64 = st.cp;
+    let intv: u64 = 0;
+    let ndig: u64 = 0;
+    while st.cp < st.le {
+        let c: u8 = byte_at(st.fptr, st.cp);
+        if !is_digit(c) { break; };
+        intv = intv * 10 + (c - 48) as u64;
+        ndig = ndig + 1;
+        st.cp = st.cp + 1;
+        if ndig > 12 { return fail(st, err_coef(), start); };
+    }
+    if ndig == 0 { return fail(st, err_coef(), start); };
+    let fracv: u64 = 0;
+    let fden: u64 = 1;
+    if st.cp < st.le {
+        if byte_at(st.fptr, st.cp) == 46 {
+            let dotpos: u64 = st.cp;
+            st.cp = st.cp + 1;
+            let fd: u64 = 0;
+            while st.cp < st.le {
+                let c2: u8 = byte_at(st.fptr, st.cp);
+                if !is_digit(c2) { break; };
+                fracv = fracv * 10 + (c2 - 48) as u64;
+                fden = fden * 10;
+                fd = fd + 1;
+                st.cp = st.cp + 1;
+                if fd > 12 { return fail(st, err_coef(), start); };
+            }
+            if fd == 0 { return fail(st, err_coef(), dotpos); };
+        };
+    };
+    let n0: u64 = intv * fden + fracv;
+    let g: u64 = gcd_u(n0, fden);
+    *num = n0 / g;
+    *den = fden / g;
+    return true;
+}
+
+// 捕获数值原文 span（value_eq / tol 用，不换算）
+fn parse_number_raw(st: &St, s: &u64, n: &u64) -> bool {
+    let start: u64 = st.cp;
+    let nd: u64 = 0;
+    while st.cp < st.le {
+        let c: u8 = byte_at(st.fptr, st.cp);
+        if !is_digit(c) { break; };
+        nd = nd + 1;
+        st.cp = st.cp + 1;
+    }
+    if nd == 0 { return fail(st, err_coef(), start); };
+    if st.cp < st.le {
+        if byte_at(st.fptr, st.cp) == 46 {
+            let dotpos: u64 = st.cp;
+            let save: u64 = st.cp;
+            st.cp = st.cp + 1;
+            let fd: u64 = 0;
+            while st.cp < st.le {
+                let c2: u8 = byte_at(st.fptr, st.cp);
+                if !is_digit(c2) { break; };
+                fd = fd + 1;
+                st.cp = st.cp + 1;
+            }
+            if fd == 0 { st.cp = save; return fail(st, err_coef(), dotpos); };
+        };
+    };
+    *s = start;
+    *n = st.cp - start;
+    return true;
+}
+
+// 向输出写一个物种 id："formula1:<本体>@<电荷>"
+fn emit_species_id(st: &St, b: &Vec<u8>, idx: u64) {
+    oput(b, 34);
+    oput_str(b, STR_PTR("formula1:"), STR_LEN("formula1:") as u64);
+    oput_span(b, st.fptr, st.sp_fs[idx], st.sp_fl[idx]);
+    oput(b, 64);
+    oput_i64(b, st.sp_chg[idx]);
+    oput(b, 34);
+}
+
+fn emit_coef(b: &Vec<u8>, has: bool, num: u64, den: u64) {
+    if !has {
+        oput_str(b, STR_PTR("null"), STR_LEN("null") as u64);
+        return;
+    };
+    if den == 1 {
+        oput_u64(b, num);
+        return;
+    };
+    oput(b, 34);
+    oput_u64(b, num);
+    oput(b, 47);
+    oput_u64(b, den);
+    oput(b, 34);
+}
+
+// 越界安全的字节读（前瞻用）：超长返回 0
+fn byte_or(st: &St, i: u64) -> u8 {
+    if i >= st.flen { return 0; };
+    return byte_at(st.fptr, i);
+}
+
+fn parse_term(st: &St, out: &Vec<u8>) -> bool {
+    skip_spaces(st);
+    let has: bool = false;
+    let num: u64 = 0;
+    let den: u64 = 1;
+    if st.cp < st.le {
+        if is_digit(byte_at(st.fptr, st.cp)) {
+            let nstart: u64 = st.cp;
+            if !parse_number_rat(st, &num, &den) { return false; };
+            if num == 0 { return fail(st, err_coef(), nstart); };
+            has = true;
+            skip_spaces(st);
+        };
+    };
+    let idx: u64 = 0;
+    if !scan_species(st, &idx) { return false; };
+    oput(out, 91);
+    emit_species_id(st, out, idx);
+    oput(out, 44);
+    emit_coef(out, has, num, den);
+    oput(out, 93);
+    return true;
+}
+
+fn parse_side(st: &St, out: &Vec<u8>) -> bool {
+    let n: u64 = 0;
+    let go: bool = true;
+    while go {
+        if n > 0 { oput(out, 44); };
+        if !parse_term(st, out) { return false; };
+        n = n + 1;
+        skip_spaces(st);
+        go = false;
+        if st.cp < st.le {
+            if byte_at(st.fptr, st.cp) == 43 {
+                st.cp = st.cp + 1;
+                go = true;
+            };
+        };
+    }
+    return true;
+}
+
+// cp 是否停在一个新项的开头（缺 '+' 时的判定）
+fn at_term_start(st: &St) -> bool {
+    if st.cp >= st.le { return false; };
+    let c: u8 = byte_at(st.fptr, st.cp);
+    return is_upper(c) || is_lower(c) || is_digit(c) || c == 40;
+}
+
+fn parse_equation(st: &St, out: &Vec<u8>) -> bool {
+    oput_str(out, STR_PTR("{\"lhs\":["), STR_LEN("{\"lhs\":[") as u64);
+    skip_spaces(st);
+    if st.cp >= st.le { return fail(st, err_side(), st.cp); };
+    let c0: u8 = byte_at(st.fptr, st.cp);
+    if c0 == 45 || c0 == 60 { return fail(st, err_side(), st.cp); };
+    if !parse_side(st, out) { return false; };
+    if at_term_start(st) { return fail(st, err_plus(), st.cp); };
+    oput_str(out, STR_PTR("],\"rhs\":["), STR_LEN("],\"rhs\":[") as u64);
+    skip_spaces(st);
+    let ar: u64 = 0;
+    if byte_or(st, st.cp) == 45 {
+        if byte_or(st, st.cp + 1) == 62 { ar = 1; };
+    };
+    if byte_or(st, st.cp) == 60 {
+        if byte_or(st, st.cp + 1) == 61 {
+            if byte_or(st, st.cp + 2) == 62 { ar = 2; };
+        };
+    };
+    if ar == 0 {
+        if byte_or(st, st.cp) == 61 { return fail(st, err_arrow_eq(), st.cp); };
+        return fail(st, err_arrow(), st.cp);
+    };
+    if ar == 1 { st.cp = st.cp + 2; } else { st.cp = st.cp + 3; };
+    skip_spaces(st);
+    if st.cp >= st.le { return fail(st, err_side(), st.cp); };
+    if !parse_side(st, out) { return false; };
+    if at_term_start(st) { return fail(st, err_plus(), st.cp); };
+    oput_str(out, STR_PTR("],\"arrow\":\""), STR_LEN("],\"arrow\":\"") as u64);
+    if ar == 1 { oput_str(out, STR_PTR("->"), STR_LEN("->") as u64); } else { oput_str(out, STR_PTR("<=>"), STR_LEN("<=>") as u64); };
+    oput_str(out, STR_PTR("\"}"), STR_LEN("\"}") as u64);
+    return true;
+}
+
+fn expect_tail(st: &St) -> bool {
+    skip_spaces(st);
+    if st.cp < st.le { return fail(st, err_tail(), st.cp); };
+    return true;
+}
+
+fn parse_assert(st: &St) -> bool {
+    st.cp = st.cp + 6;
+    skip_spaces(st);
+    if at_keyword(st, STR_PTR("balanced"), STR_LEN("balanced") as u64) {
+        st.cp = st.cp + 8;
+        skip_spaces(st);
+        if st.as_n > 0 { oput(&st.o_as, 44); };
+        oput_str(&st.o_as, STR_PTR("{\"kind\":\"balanced\",\"equation\":"), STR_LEN("{\"kind\":\"balanced\",\"equation\":") as u64);
+        if !parse_equation(st, &st.o_as) { return false; };
+        oput(&st.o_as, 125);
+        st.as_n = st.as_n + 1;
+        return expect_tail(st);
+    };
+    if at_keyword(st, STR_PTR("value_eq"), STR_LEN("value_eq") as u64) {
+        st.cp = st.cp + 8;
+        skip_spaces(st);
+        if st.cp >= st.le { return fail(st, err_string(), st.cp); };
+        if byte_at(st.fptr, st.cp) != 34 { return fail(st, err_string(), st.cp); };
+        st.cp = st.cp + 1;
+        let es: u64 = st.cp;
+        let closed: bool = false;
+        while st.cp < st.le {
+            let c: u8 = byte_at(st.fptr, st.cp);
+            if c == 34 { closed = true; break; };
+            if c == 92 { return fail(st, err_string(), st.cp); };
+            st.cp = st.cp + 1;
+        }
+        if !closed { return fail(st, err_string(), es); };
+        let en: u64 = st.cp - es;
+        st.cp = st.cp + 1;
+        skip_spaces(st);
+        if st.cp >= st.le { return fail(st, err_eqsign(), st.cp); };
+        if byte_at(st.fptr, st.cp) != 61 { return fail(st, err_eqsign(), st.cp); };
+        st.cp = st.cp + 1;
+        skip_spaces(st);
+        let vs: u64 = 0;
+        let vn: u64 = 0;
+        if !parse_number_raw(st, &vs, &vn) { return false; };
+        skip_spaces(st);
+        let us: u64 = st.cp;
+        while st.cp < st.le {
+            let c2: u8 = byte_at(st.fptr, st.cp);
+            if is_upper(c2) || is_lower(c2) || c2 == 47 || c2 == 42 {
+                st.cp = st.cp + 1;
+            } else {
+                break;
+            };
+        }
+        if st.cp == us { return fail(st, err_unit(), us); };
+        let un: u64 = st.cp - us;
+        skip_spaces(st);
+        if !at_keyword(st, STR_PTR("tol"), STR_LEN("tol") as u64) { return fail(st, err_tol(), st.cp); };
+        st.cp = st.cp + 3;
+        skip_spaces(st);
+        let ts: u64 = 0;
+        let tn: u64 = 0;
+        if !parse_number_raw(st, &ts, &tn) { return false; };
+        if st.cp < st.le {
+            if byte_at(st.fptr, st.cp) == 37 {
+                tn = tn + 1;
+                st.cp = st.cp + 1;
+            };
+        };
+        if st.as_n > 0 { oput(&st.o_as, 44); };
+        oput_str(&st.o_as, STR_PTR("{\"kind\":\"value_eq\",\"expr\":\""), STR_LEN("{\"kind\":\"value_eq\",\"expr\":\"") as u64);
+        oput_span(&st.o_as, st.fptr, es, en);
+        oput_str(&st.o_as, STR_PTR("\",\"expect\":{\"value\":\""), STR_LEN("\",\"expect\":{\"value\":\"") as u64);
+        oput_span(&st.o_as, st.fptr, vs, vn);
+        oput_str(&st.o_as, STR_PTR("\",\"unit\":\""), STR_LEN("\",\"unit\":\"") as u64);
+        oput_span(&st.o_as, st.fptr, us, un);
+        oput_str(&st.o_as, STR_PTR("\"},\"tol\":\""), STR_LEN("\"},\"tol\":\"") as u64);
+        oput_span(&st.o_as, st.fptr, ts, tn);
+        oput_str(&st.o_as, STR_PTR("\"}"), STR_LEN("\"}") as u64);
+        st.as_n = st.as_n + 1;
+        return expect_tail(st);
+    };
+    if at_keyword(st, STR_PTR("species_eq"), STR_LEN("species_eq") as u64) {
+        st.cp = st.cp + 10;
+        skip_spaces(st);
+        let ia: u64 = 0;
+        if !scan_species(st, &ia) { return false; };
+        skip_spaces(st);
+        let ib: u64 = 0;
+        if !scan_species(st, &ib) { return false; };
+        if st.as_n > 0 { oput(&st.o_as, 44); };
+        oput_str(&st.o_as, STR_PTR("{\"kind\":\"species_id_eq\",\"a\":"), STR_LEN("{\"kind\":\"species_id_eq\",\"a\":") as u64);
+        emit_species_id(st, &st.o_as, ia);
+        oput_str(&st.o_as, STR_PTR(",\"b\":"), STR_LEN(",\"b\":") as u64);
+        emit_species_id(st, &st.o_as, ib);
+        oput(&st.o_as, 125);
+        st.as_n = st.as_n + 1;
+        return expect_tail(st);
+    };
+    return fail(st, err_assert(), st.cp);
+}
+
+fn parse_statement(st: &St) -> bool {
+    if at_keyword(st, STR_PTR("species"), STR_LEN("species") as u64) {
+        st.cp = st.cp + 7;
+        skip_spaces(st);
+        if st.cp >= st.le { return fail(st, err_species(), st.cp); };
+        let idx: u64 = 0;
+        if !scan_species(st, &idx) { return false; };
+        return expect_tail(st);
+    };
+    if at_keyword(st, STR_PTR("assert"), STR_LEN("assert") as u64) {
+        return parse_assert(st);
+    };
+    // 小写单词开头且不带数字 → 不是方程式，给 E_STMT；元素式的小写（如 h2）放行到方程式解析报 E_LOWER
+    if st.cp < st.le {
+        if is_lower(byte_at(st.fptr, st.cp)) {
+            let w: u64 = st.cp;
+            while w < st.le {
+                if !is_lower(byte_at(st.fptr, w)) { break; };
+                w = w + 1;
+            }
+            let wlen: u64 = w - st.cp;
+            let after: u8 = byte_or(st, w);
+            if wlen >= 3 {
+                if !is_digit(after) { return fail(st, err_stmt(), st.cp); };
+            };
+        };
+    };
+    if st.eq_n > 0 { oput(&st.o_eq, 44); };
+    if !parse_equation(st, &st.o_eq) { return false; };
+    st.eq_n = st.eq_n + 1;
+    return expect_tail(st);
+}
+
+fn emit_species_records(st: &St) {
+    let i: u64 = 0;
+    while i < st.sp_n {
+        if i > 0 { oput(&st.o_sp, 44); };
+        oput_str(&st.o_sp, STR_PTR("{\"id\":"), STR_LEN("{\"id\":") as u64);
+        emit_species_id(st, &st.o_sp, i);
+        oput_str(&st.o_sp, STR_PTR(",\"formula\":\""), STR_LEN(",\"formula\":\"") as u64);
+        oput_span(&st.o_sp, st.fptr, st.sp_fs[i], st.sp_fl[i]);
+        oput_str(&st.o_sp, STR_PTR("\",\"composition\":{"), STR_LEN("\",\"composition\":{") as u64);
+        let t: u64 = 0;
+        while t < st.sp_cn[i] {
+            if t > 0 { oput(&st.o_sp, 44); };
+            let ei: u64 = st.cp_el[st.sp_cstart[i] + t];
+            oput(&st.o_sp, 34);
+            oput_span(&st.o_sp, st.fptr, st.el_start[ei], st.el_len[ei]);
+            oput_str(&st.o_sp, STR_PTR("\":"), STR_LEN("\":") as u64);
+            oput_u64(&st.o_sp, st.cp_ct[st.sp_cstart[i] + t]);
+            t = t + 1;
+        }
+        oput_str(&st.o_sp, STR_PTR("},\"charge\":"), STR_LEN("},\"charge\":") as u64);
+        oput_i64(&st.o_sp, st.sp_chg[i]);
+        oput(&st.o_sp, 125);
+        i = i + 1;
+    }
+}
+
+// 列号：从行首到 pos 的字符数（UTF-8 码位计数，中文算 1 列）
+fn col_of(st: &St, pos: u64) -> u64 {
+    let col: u64 = 1;
+    let i: u64 = st.raw_ls;
+    while i < pos {
+        let b: u8 = byte_at(st.fptr, i);
+        if b < 128 {
+            col = col + 1;
+        } else {
+            if (b & 192) != 128 { col = col + 1; };
+        };
+        i = i + 1;
+    }
+    return col;
+}
+
+fn diag_msg(st: &St) {
+    let b: &Vec<u8> = &st.o_dg;
+    let k: i64 = st.e_kind;
+    if k == 1 {
+        oput_str(b, STR_PTR("符号『"), STR_LEN("符号『") as u64);
+        // 出错字符的 UTF-8 字节（1-4 字节）
+        let c0: u8 = byte_or(st, st.e_pos);
+        let cl: u64 = 1;
+        if c0 >= 240 { cl = 4; } else {
+            if c0 >= 224 { cl = 3; } else {
+                if c0 >= 192 { cl = 2; };
+            };
+        };
+        let t: u64 = 0;
+        while t < cl {
+            oput(b, byte_or(st, st.e_pos + t));
+            t = t + 1;
+        }
+        oput_str(b, STR_PTR("』在这里用不上。化学式只用英文字母、数字和括号，方程式里还会用到 + 和箭头。"), STR_LEN("』在这里用不上。化学式只用英文字母、数字和括号，方程式里还会用到 + 和箭头。") as u64);
+        return;
+    };
+    if k == 2 { oput_str(b, STR_PTR("元素符号的第一个字母要大写。比如水要写成 H2O，不能写成 h2o。"), STR_LEN("元素符号的第一个字母要大写。比如水要写成 H2O，不能写成 h2o。") as u64); return; };
+    if k == 3 { oput_str(b, STR_PTR("这里应该写一个化学式，比如 H2O、O2、Ca(OH)2。"), STR_LEN("这里应该写一个化学式，比如 H2O、O2、Ca(OH)2。") as u64); return; };
+    if k == 4 { oput_str(b, STR_PTR("括号没有关上：前面写了一个 ( ，后面要补上一个 ) 。"), STR_LEN("括号没有关上：前面写了一个 ( ，后面要补上一个 ) 。") as u64); return; };
+    if k == 5 { oput_str(b, STR_PTR("这个 ) 前面没有配对的 ( ，多写了一个 ) 。"), STR_LEN("这个 ) 前面没有配对的 ( ，多写了一个 ) 。") as u64); return; };
+    if k == 6 { oput_str(b, STR_PTR("角标数字要紧跟在元素符号或 ) 的后面，比如 H2O 里的 2、Ca(OH)2 最后的 2。"), STR_LEN("角标数字要紧跟在元素符号或 ) 的后面，比如 H2O 里的 2、Ca(OH)2 最后的 2。") as u64); return; };
+    if k == 7 { oput_str(b, STR_PTR("方程式中间缺了箭头：左边写反应物，中间写 -> 或 <=>，右边写生成物。"), STR_LEN("方程式中间缺了箭头：左边写反应物，中间写 -> 或 <=>，右边写生成物。") as u64); return; };
+    if k == 8 { oput_str(b, STR_PTR("方程式中间不能用 = 连接，要用 ->（生成）或 <=>（可逆）。"), STR_LEN("方程式中间不能用 = 连接，要用 ->（生成）或 <=>（可逆）。") as u64); return; };
+    if k == 9 { oput_str(b, STR_PTR("两个化学式之间要用 + 连接。"), STR_LEN("两个化学式之间要用 + 连接。") as u64); return; };
+    if k == 10 { oput_str(b, STR_PTR("箭头的这一边是空的：箭头左右两边至少各写一个化学式。"), STR_LEN("箭头的这一边是空的：箭头左右两边至少各写一个化学式。") as u64); return; };
+    if k == 11 { oput_str(b, STR_PTR("这一行后面多出来的内容看不懂：一行只写一条语句，多余的部分删掉或另起一行。"), STR_LEN("这一行后面多出来的内容看不懂：一行只写一条语句，多余的部分删掉或另起一行。") as u64); return; };
+    if k == 12 { oput_str(b, STR_PTR("数字写得不对：系数和数值要用大于 0 的整数或小数，比如 2、0.5。"), STR_LEN("数字写得不对：系数和数值要用大于 0 的整数或小数，比如 2、0.5。") as u64); return; };
+    if k == 13 { oput_str(b, STR_PTR("电荷要紧贴化学式末尾写，比如 Ca2+、OH-、SO4^2-。"), STR_LEN("电荷要紧贴化学式末尾写，比如 Ca2+、OH-、SO4^2-。") as u64); return; };
+    if k == 14 { oput_str(b, STR_PTR("assert 后面只能跟 balanced（配平）、value_eq（数值）或 species_eq（同一物种）。"), STR_LEN("assert 后面只能跟 balanced（配平）、value_eq（数值）或 species_eq（同一物种）。") as u64); return; };
+    if k == 15 { oput_str(b, STR_PTR("value_eq 里要用 = 把左边的表达式和右边的期望值连起来。"), STR_LEN("value_eq 里要用 = 把左边的表达式和右边的期望值连起来。") as u64); return; };
+    if k == 16 { oput_str(b, STR_PTR("字符串要用一对英文双引号括起来，里面先不要用反斜杠。"), STR_LEN("字符串要用一对英文双引号括起来，里面先不要用反斜杠。") as u64); return; };
+    if k == 17 { oput_str(b, STR_PTR("value_eq 最后要写允许误差，比如 tol 0.5（也可以写 tol 1%）。"), STR_LEN("value_eq 最后要写允许误差，比如 tol 0.5（也可以写 tol 1%）。") as u64); return; };
+    if k == 18 { oput_str(b, STR_PTR("数值后面要跟单位，比如 g、mol、L、g/mol。"), STR_LEN("数值后面要跟单位，比如 g、mol、L、g/mol。") as u64); return; };
+    if k == 19 { oput_str(b, STR_PTR("这一行看不懂：每行只能是 species（声明物种）、assert（断言），或者一个方程式。"), STR_LEN("这一行看不懂：每行只能是 species（声明物种）、assert（断言），或者一个方程式。") as u64); return; };
+    oput_str(b, STR_PTR("这个化学式太复杂了，v0.1 先写简单一点的。"), STR_LEN("这个化学式太复杂了，v0.1 先写简单一点的。") as u64);
+}
+
+fn render_diag(st: &St, raw_le: u64) {
+    let b: &Vec<u8> = &st.o_dg;
+    oput_str(b, STR_PTR("第 "), STR_LEN("第 ") as u64);
+    oput_u64(b, st.lno);
+    oput_str(b, STR_PTR(" 行第 "), STR_LEN(" 行第 ") as u64);
+    oput_u64(b, col_of(st, st.e_pos));
+    oput_str(b, STR_PTR(" 列出了点问题："), STR_LEN(" 列出了点问题：") as u64);
+    diag_msg(st);
+    oput_str(b, STR_PTR("\n出错的那一行："), STR_LEN("\n出错的那一行：") as u64);
+    oput_span(b, st.fptr, st.raw_ls, raw_le - st.raw_ls);
+    oput(b, 10);
+    print_vec(b);
+}
+
+// ---- check 层衔接点：balance_delta 教学句子（格式见 GRAMMAR.md §7）----
+fn raw_eq(p: ptr, n: u64, lp: ptr, ln: u64) -> bool {
+    if n != ln { return false; };
+    let i: u64 = 0;
+    while i < n {
+        if byte_at(p, i) != byte_at(lp, i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn raw_u64(p: ptr, n: u64) -> u64 {
+    let v: u64 = 0;
+    let i: u64 = 0;
+    while i < n {
+        let c: u8 = byte_at(p, i);
+        if !is_digit(c) { break; };
+        v = v * 10 + (c - 48) as u64;
+        i = i + 1;
+    }
+    return v;
+}
+
+fn elem_cn(b: &Vec<u8>, p: ptr, n: u64) -> bool {
+    if raw_eq(p, n, STR_PTR("H"), STR_LEN("H") as u64) { oput_str(b, STR_PTR("氢"), STR_LEN("氢") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("O"), STR_LEN("O") as u64) { oput_str(b, STR_PTR("氧"), STR_LEN("氧") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("C"), STR_LEN("C") as u64) { oput_str(b, STR_PTR("碳"), STR_LEN("碳") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("N"), STR_LEN("N") as u64) { oput_str(b, STR_PTR("氮"), STR_LEN("氮") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("S"), STR_LEN("S") as u64) { oput_str(b, STR_PTR("硫"), STR_LEN("硫") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("P"), STR_LEN("P") as u64) { oput_str(b, STR_PTR("磷"), STR_LEN("磷") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Cl"), STR_LEN("Cl") as u64) { oput_str(b, STR_PTR("氯"), STR_LEN("氯") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Na"), STR_LEN("Na") as u64) { oput_str(b, STR_PTR("钠"), STR_LEN("钠") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("K"), STR_LEN("K") as u64) { oput_str(b, STR_PTR("钾"), STR_LEN("钾") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Ca"), STR_LEN("Ca") as u64) { oput_str(b, STR_PTR("钙"), STR_LEN("钙") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Mg"), STR_LEN("Mg") as u64) { oput_str(b, STR_PTR("镁"), STR_LEN("镁") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Al"), STR_LEN("Al") as u64) { oput_str(b, STR_PTR("铝"), STR_LEN("铝") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Fe"), STR_LEN("Fe") as u64) { oput_str(b, STR_PTR("铁"), STR_LEN("铁") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Zn"), STR_LEN("Zn") as u64) { oput_str(b, STR_PTR("锌"), STR_LEN("锌") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Cu"), STR_LEN("Cu") as u64) { oput_str(b, STR_PTR("铜"), STR_LEN("铜") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Ag"), STR_LEN("Ag") as u64) { oput_str(b, STR_PTR("银"), STR_LEN("银") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Ba"), STR_LEN("Ba") as u64) { oput_str(b, STR_PTR("钡"), STR_LEN("钡") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Mn"), STR_LEN("Mn") as u64) { oput_str(b, STR_PTR("锰"), STR_LEN("锰") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("I"), STR_LEN("I") as u64) { oput_str(b, STR_PTR("碘"), STR_LEN("碘") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Br"), STR_LEN("Br") as u64) { oput_str(b, STR_PTR("溴"), STR_LEN("溴") as u64); return true; };
+    if raw_eq(p, n, STR_PTR("Si"), STR_LEN("Si") as u64) { oput_str(b, STR_PTR("硅"), STR_LEN("硅") as u64); return true; };
+    return false;
+}
+
+fn print_hint(ep: ptr, en: u64, lhs: u64, rhs: u64) -> i32 {
+    let ob: Vec<u8> = Vec::new();
+    let b: &Vec<u8> = &ob;
+    if elem_cn(b, ep, en) {
+        oput_str(b, STR_PTR("（"), STR_LEN("（") as u64);
+        oput_str(b, ep, en);
+        oput_str(b, STR_PTR("）："), STR_LEN("）：") as u64);
+    } else {
+        oput_str(b, ep, en);
+        oput_str(b, STR_PTR("："), STR_LEN("：") as u64);
+    };
+    if lhs > rhs {
+        oput_str(b, STR_PTR("左边有 "), STR_LEN("左边有 ") as u64);
+        oput_u64(b, lhs);
+        oput_str(b, STR_PTR(" 个，右边只有 "), STR_LEN(" 个，右边只有 ") as u64);
+        oput_u64(b, rhs);
+        oput_str(b, STR_PTR(" 个，两边不一样多。"), STR_LEN(" 个，两边不一样多。") as u64);
+    };
+    if lhs < rhs {
+        oput_str(b, STR_PTR("左边只有 "), STR_LEN("左边只有 ") as u64);
+        oput_u64(b, lhs);
+        oput_str(b, STR_PTR(" 个，右边有 "), STR_LEN(" 个，右边有 ") as u64);
+        oput_u64(b, rhs);
+        oput_str(b, STR_PTR(" 个，两边不一样多。"), STR_LEN(" 个，两边不一样多。") as u64);
+    };
+    if lhs == rhs {
+        oput_str(b, STR_PTR("左边有 "), STR_LEN("左边有 ") as u64);
+        oput_u64(b, lhs);
+        oput_str(b, STR_PTR(" 个，右边也有 "), STR_LEN(" 个，右边也有 ") as u64);
+        oput_u64(b, rhs);
+        oput_str(b, STR_PTR(" 个，两边一样多。"), STR_LEN(" 个，两边一样多。") as u64);
+    };
+    oput(b, 10);
+    print_vec(b);
+    return 0;
+}
+
+fn print_usage() -> i32 {
+    let ob: Vec<u8> = Vec::new();
+    oput_str(&ob, STR_PTR("用法：heng_parse <文件.heng>；或 heng_parse --hint <元素符号> <左边个数> <右边个数>\n"), STR_LEN("用法：heng_parse <文件.heng>；或 heng_parse --hint <元素符号> <左边个数> <右边个数>\n") as u64);
+    print_vec(&ob);
+    return 2;
+}
+
+fn print_str(p: ptr, n: u64) {
+    sa_print_bytes(p, n);
+}
+
+fn main() -> i32 {
+    let abuf: u64 = sa_env_args_json();
+    if abuf == 0 { return print_usage(); };
+    let aptr: ptr = sa_env_buffer_data(abuf);
+    let alen: u64 = sa_env_buffer_len(abuf);
+    let args: u64 = sa_json_parse(aptr, alen);
+    if args == 0 { return print_usage(); };
+    let cnt: u64 = 0;
+    if sa_json_value_count(args, &cnt) != 0 { return print_usage(); };
+    if cnt < 2 { return print_usage(); };
+    let n1: u64 = 0;
+    if sa_json_array_get(args, 1, &n1) != 0 { return print_usage(); };
+    if sa_json_kind(n1) != 5 { return print_usage(); };
+    let a1p: ptr = sa_json_string_ptr(n1);
+    let a1n: u64 = sa_json_string_len(n1);
+    if raw_eq(a1p, a1n, STR_PTR("--hint"), STR_LEN("--hint") as u64) {
+        if cnt < 5 { return print_usage(); };
+        let n2: u64 = 0;
+        let n3: u64 = 0;
+        let n4: u64 = 0;
+        if sa_json_array_get(args, 2, &n2) != 0 { return print_usage(); };
+        if sa_json_array_get(args, 3, &n3) != 0 { return print_usage(); };
+        if sa_json_array_get(args, 4, &n4) != 0 { return print_usage(); };
+        if sa_json_kind(n2) != 5 { return print_usage(); };
+        if sa_json_kind(n3) != 5 { return print_usage(); };
+        if sa_json_kind(n4) != 5 { return print_usage(); };
+        let e2p: ptr = sa_json_string_ptr(n2);
+        let e2n: u64 = sa_json_string_len(n2);
+        let p3: ptr = sa_json_string_ptr(n3);
+        let p4: ptr = sa_json_string_ptr(n4);
+        let v3: u64 = raw_u64(p3, sa_json_string_len(n3));
+        let v4: u64 = raw_u64(p4, sa_json_string_len(n4));
+        return print_hint(e2p, e2n, v3, v4);
+    };
+    let fbuf: u64 = 0;
+    if sa_std_fs_read_to_string(a1p, a1n, 4194304, &fbuf) != 0 {
+        let ob: Vec<u8> = Vec::new();
+        oput_str(&ob, STR_PTR("打不开这个文件："), STR_LEN("打不开这个文件：") as u64);
+        oput_str(&ob, a1p, a1n);
+        oput(&ob, 10);
+        print_vec(&ob);
+        return 2;
+    };
+    let fp0: ptr = sa_fs_read_buffer_data(fbuf);
+    let fl0: u64 = sa_fs_read_buffer_len(fbuf);
+    let st = St {
+        fptr: fp0, flen: fl0,
+        cp: 0, ls: 0, le: 0, lno: 1, raw_ls: 0,
+        e_has: false, e_kind: 0, e_pos: 0,
+        el_start: [0u64; 96], el_len: [0u64; 96], el_n: 0,
+        sp_fs: [0u64; 192], sp_fl: [0u64; 192], sp_chg: [0i64; 192],
+        sp_cstart: [0u64; 192], sp_cn: [0u64; 192], sp_n: 0,
+        cp_el: [0u64; 2048], cp_ct: [0u64; 2048], cp_n: 0,
+        eq_n: 0, as_n: 0,
+        o_sp: Vec::new(), o_eq: Vec::new(), o_as: Vec::new(), o_dg: Vec::new(),
+    };
+    let pos: u64 = 0;
+    let lno: u64 = 1;
+    let done: bool = false;
+    while !done {
+        let e: u64 = pos;
+        while e < st.flen {
+            if byte_at(st.fptr, e) == 10 { break; };
+            e = e + 1;
+        }
+        let raw_le: u64 = e;
+        if raw_le > pos {
+            if byte_at(st.fptr, raw_le - 1) == 13 { raw_le = raw_le - 1; };
+        };
+        let cend: u64 = raw_le;
+        let inq: bool = false;
+        let i: u64 = pos;
+        while i < raw_le {
+            let c: u8 = byte_at(st.fptr, i);
+            if c == 34 { inq = !inq; };
+            if !inq {
+                if c == 47 {
+                    if i + 1 < raw_le {
+                        if byte_at(st.fptr, i + 1) == 47 { cend = i; break; };
+                    };
+                };
+            };
+            i = i + 1;
+        }
+        let ls2: u64 = pos;
+        while ls2 < cend {
+            if !is_space(byte_at(st.fptr, ls2)) { break; };
+            ls2 = ls2 + 1;
+        }
+        let le2: u64 = cend;
+        while le2 > ls2 {
+            if !is_space(byte_at(st.fptr, le2 - 1)) { break; };
+            le2 = le2 - 1;
+        }
+        if ls2 < le2 {
+            st.raw_ls = pos;
+            st.lno = lno;
+            st.ls = ls2;
+            st.le = le2;
+            st.cp = ls2;
+            st.e_has = false;
+            st.e_kind = 0;
+            st.e_pos = 0;
+            let ok: bool = parse_statement(&st);
+            if !ok {
+                render_diag(&st, raw_le);
+                return 1;
+            };
+        };
+        if e >= st.flen {
+            done = true;
+        } else {
+            pos = e + 1;
+            lno = lno + 1;
+        };
+    }
+    emit_species_records(&st);
+    print_str(STR_PTR("{\"species\":["), STR_LEN("{\"species\":[") as u64);
+    print_vec(&st.o_sp);
+    print_str(STR_PTR("],\"equations\":["), STR_LEN("],\"equations\":[") as u64);
+    print_vec(&st.o_eq);
+    print_str(STR_PTR("],\"assertions\":["), STR_LEN("],\"assertions\":[") as u64);
+    print_vec(&st.o_as);
+    print_str(STR_PTR("]}\n"), STR_LEN("]}\n") as u64);
+    return 0;
+}

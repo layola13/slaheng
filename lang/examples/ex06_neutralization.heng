@@ -1,0 +1,4 @@
+// 例 6：酸碱中和——分子方程式、离子方程式（电荷写法）、乙醇的两种写法是同一物种
+HCl + NaOH -> NaCl + H2O
+H+ + OH- -> H2O
+assert species_eq C2H5OH C2H6O

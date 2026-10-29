@@ -1,0 +1,28 @@
+// ARGV_SETn: 把第 n 个 (ptr, len) 参数对填入 [u64; 2*N] argv 数组。
+// 布局与 sa_std 的 SaProcessArgv 一致：每参数占 2 个 u64 槽（data, len）。
+// 仿 sa_plugin_sla/demos/cxu/01_bridge_stdio/argv1.sa 的 ARGV_FILL1——
+// ptr -> u64 转型在 .sla 里不允许，故由 SA 宏完成 store。
+[MACRO] ARGV_SET0 %arr_ptr, %p, %l
+    store %arr_ptr+0, %p as ptr
+    store %arr_ptr+8, %l as u64
+[END_MACRO]
+
+[MACRO] ARGV_SET1 %arr_ptr, %p, %l
+    store %arr_ptr+16, %p as ptr
+    store %arr_ptr+24, %l as u64
+[END_MACRO]
+
+[MACRO] ARGV_SET2 %arr_ptr, %p, %l
+    store %arr_ptr+32, %p as ptr
+    store %arr_ptr+40, %l as u64
+[END_MACRO]
+
+[MACRO] ARGV_SET3 %arr_ptr, %p, %l
+    store %arr_ptr+48, %p as ptr
+    store %arr_ptr+56, %l as u64
+[END_MACRO]
+
+[MACRO] ARGV_SET4 %arr_ptr, %p, %l
+    store %arr_ptr+64, %p as ptr
+    store %arr_ptr+72, %l as u64
+[END_MACRO]
