@@ -1,0 +1,94 @@
+// Heng found/ — rational unit corpus.
+
+@import "rational.sla"
+
+fn eq_str(a: &String, b: &String) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    if len(ab) != len(bb) { return false; };
+    let i: u64 = 0;
+    while i < len(ab) {
+        if ab[i] != bb[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn expect_rat(a: &Rational, want: &String, code: i64) {
+    let got = rat_to_string(a);
+    if !eq_str(&got, want) { panic(code); };
+}
+
+fn expect_dec(a: &Rational, places: u64, want: &String, code: i64) {
+    let got = rat_to_decimal_string(a, places);
+    if !eq_str(&got, want) { panic(code); };
+}
+
+fn rp(s: &String) -> Rational {
+    return rat_parse(s);
+}
+
+@test "rational normalize"() {
+    let a = rat_make(bi_from_i64(6), bi_from_i64(0 - 8));
+    expect_rat(&a, &format("-3/4"), 2001);
+    let b = rat_make(bi_from_i64(0), bi_from_i64(5));
+    expect_rat(&b, &format("0"), 2002);
+    let c = rat_make(bi_from_i64(0 - 12), bi_from_i64(0 - 18));
+    expect_rat(&c, &format("2/3"), 2003);
+}
+
+@test "rational decimal parse exact"() {
+    let a = rp(&format("0.1"));
+    expect_rat(&a, &format("1/10"), 2011);
+    let b = rp(&format("-2.75"));
+    expect_rat(&b, &format("-11/4"), 2012);
+    let c = rp(&format("3/6"));
+    expect_rat(&c, &format("1/2"), 2013);
+    let d = rp(&format("42"));
+    expect_rat(&d, &format("42"), 2014);
+    let e = rp(&format("0.125"));
+    expect_rat(&e, &format("1/8"), 2015);
+    let f = rp(&format("123456789123456789.5"));
+    expect_rat(&f, &format("246913578246913579/2"), 2016);
+    let g = rp(&format("-0.000001"));
+    expect_rat(&g, &format("-1/1000000"), 2017);
+}
+
+@test "rational arithmetic"() {
+    let h = rp(&format("1/2"));
+    let t = rp(&format("1/3"));
+    let s = rat_add(&h, &t);
+    expect_rat(&s, &format("5/6"), 2021);
+    let d = rat_sub(&h, &rp(&format("2/3")));
+    expect_rat(&d, &format("-1/6"), 2022);
+    let p = rat_mul(&rp(&format("2/3")), &rp(&format("9/4")));
+    expect_rat(&p, &format("3/2"), 2023);
+    let q = rat_div(&h, &rp(&format("3/4")));
+    expect_rat(&q, &format("2/3"), 2024);
+    let big = rp(&format("123456789123456789/987654321987654321"));
+    let twice = rat_add(&big, &big);
+    let want = rat_mul(&big, &rat_from_i64(2));
+    if rat_cmp(&twice, &want) != 0 { panic(2025); };
+    let z = rat_sub(&h, &h);
+    if !rat_is_zero(&z) { panic(2026); };
+}
+
+@test "rational cmp"() {
+    let a = rp(&format("1/3"));
+    let b = rp(&format("17/50"));
+    if rat_cmp(&a, &b) != 0 - 1 { panic(2031); };
+    if rat_cmp(&b, &a) != 1 { panic(2032); };
+    let c = rp(&format("0.333333333333333333"));
+    if rat_cmp(&a, &c) != 1 { panic(2033); };
+    let d = rp(&format("-2/3"));
+    let e = rp(&format("-3/4"));
+    if rat_cmp(&d, &e) != 1 { panic(2034); };
+}
+
+@test "rational decimal display"() {
+    expect_dec(&rp(&format("1/8")), 10, &format("0.125"), 2041);
+    expect_dec(&rp(&format("-7/2")), 10, &format("-3.5"), 2042);
+    expect_dec(&rp(&format("1/3")), 6, &format("0.333333"), 2043);
+    expect_dec(&rp(&format("22/7")), 4, &format("3.1428"), 2044);
+    expect_dec(&rp(&format("5")), 3, &format("5"), 2045);
+}

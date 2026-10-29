@@ -1,0 +1,209 @@
+// Heng found/ — rational: exact rational numbers on top of bigint.
+//
+// Invariant: den > 0, gcd(|num|, den) == 1, zero is 0/1. Every
+// constructor and operation re-establishes the invariant. Decimal
+// strings are parsed exactly ("0.1" == 1/10) — never through floats.
+// Panic codes 82xx are this module's loud-failure codes.
+
+@import "bigint.sla"
+
+struct Rational {
+    num: BigInt,
+    den: BigInt,
+}
+
+fn rat_normalize(num: BigInt, den: BigInt) -> Rational {
+    if bi_is_zero(&den) { panic(8201); };
+    let n = num;
+    let d = den;
+    if d.neg {
+        n = bi_neg(&n);
+        d = bi_neg(&d);
+    };
+    if bi_is_zero(&n) {
+        return Rational { num: bi_zero(), den: bi_from_u64(1) };
+    };
+    let an = bi_abs(&n);
+    let g = bi_gcd(&an, &d);
+    let (nmag, _nr) = bi_divmod_abs(&an, &g);
+    let (dmag, _dr) = bi_divmod_abs(&d, &g);
+    let snum = bi_with_sign(&nmag, n.neg);
+    return Rational { num: snum, den: dmag };
+}
+
+fn rat_from_bigint(x: BigInt) -> Rational {
+    return Rational { num: x, den: bi_from_u64(1) };
+}
+
+fn rat_from_i64(x: i64) -> Rational {
+    return Rational { num: bi_from_i64(x), den: bi_from_u64(1) };
+}
+
+fn rat_make(num: BigInt, den: BigInt) -> Rational {
+    return rat_normalize(num, den);
+}
+
+fn rat_is_zero(a: &Rational) -> bool {
+    return bi_is_zero(&a.num);
+}
+
+fn rat_neg(a: &Rational) -> Rational {
+    let nn = bi_neg(&a.num);
+    let dd = bi_clone(&a.den);
+    return Rational { num: nn, den: dd };
+}
+
+fn rat_add(a: &Rational, b: &Rational) -> Rational {
+    let t1 = bi_mul(&a.num, &b.den);
+    let t2 = bi_mul(&b.num, &a.den);
+    let n = bi_add(&t1, &t2);
+    let d = bi_mul(&a.den, &b.den);
+    return rat_normalize(n, d);
+}
+
+fn rat_sub(a: &Rational, b: &Rational) -> Rational {
+    let nb = rat_neg(b);
+    return rat_add(a, &nb);
+}
+
+fn rat_mul(a: &Rational, b: &Rational) -> Rational {
+    let n = bi_mul(&a.num, &b.num);
+    let d = bi_mul(&a.den, &b.den);
+    return rat_normalize(n, d);
+}
+
+fn rat_div(a: &Rational, b: &Rational) -> Rational {
+    if bi_is_zero(&b.num) { panic(8202); };
+    let n = bi_mul(&a.num, &b.den);
+    let d = bi_mul(&a.den, &b.num);
+    return rat_normalize(n, d);
+}
+
+// -1, 0, 1 (dens are positive, so cross-multiplication is safe)
+fn rat_cmp(a: &Rational, b: &Rational) -> i32 {
+    let t1 = bi_mul(&a.num, &b.den);
+    let t2 = bi_mul(&b.num, &a.den);
+    return bi_cmp(&t1, &t2);
+}
+
+fn rat_pow10(k: u64) -> BigInt {
+    let r = bi_from_u64(1);
+    let i: u64 = 0;
+    while i < k {
+        r = bi_mul_small(&r, 10);
+        i = i + 1;
+    }
+    return r;
+}
+
+// digits of s[lo..hi] as a non-negative BigInt; loud panic 8205 on
+// any non-digit or empty range.
+fn rat_digits(s: &String, lo: u64, hi: u64) -> BigInt {
+    let bs = s.as_bytes();
+    if lo >= hi { panic(8205); };
+    let r = bi_zero();
+    let i = lo;
+    while i < hi {
+        if bs[i] < 48 || bs[i] > 57 { panic(8205); };
+        let d = (bs[i] - 48) as u32;
+        r = bi_mul_small(&r, 10);
+        if d != 0 {
+            let dd = bi_from_u64(d as u64);
+            r = bi_add_abs(&r, &dd);
+        };
+        i = i + 1;
+    }
+    return r;
+}
+
+// Parse "p/q", decimal "12.34", or integer "42" (optional leading '-').
+// Exact: the fractional part becomes digits / 10^k, then normalized.
+fn rat_parse(s: &String) -> Rational {
+    let bs = s.as_bytes();
+    let n = len(bs);
+    if n == 0 { panic(8206); };
+    let start: u64 = 0;
+    let neg = false;
+    if bs[0] == 45 {
+        neg = true;
+        start = 1;
+        if n == 1 { panic(8206); };
+    };
+    let sep: i64 = 0 - 1;
+    let sepch: u8 = 0;
+    let i = start;
+    while i < n {
+        if bs[i] == 46 || bs[i] == 47 {
+            if sep != 0 - 1 { panic(8207); };
+            sep = i as i64;
+            sepch = bs[i];
+        };
+        i = i + 1;
+    }
+    if sep == 0 - 1 {
+        let mag = rat_digits(s, start, n);
+        let num = bi_with_sign(&mag, neg);
+        return rat_from_bigint(num);
+    };
+    let spos = sep as u64;
+    if sepch == 47 {
+        // p/q — denominator digits only; sign lives on the whole value
+        let pmag = rat_digits(s, start, spos);
+        let qmag = rat_digits(s, spos + 1, n);
+        let num = bi_with_sign(&pmag, neg);
+        return rat_normalize(num, qmag);
+    };
+    // decimal point
+    let intmag = rat_digits(s, start, spos);
+    let fracmag = rat_digits(s, spos + 1, n);
+    let flen = n - (spos + 1);
+    let scale = rat_pow10(flen);
+    let whole = bi_mul(&intmag, &scale);
+    let mag = bi_add_abs(&whole, &fracmag);
+    let num = bi_with_sign(&mag, neg);
+    return rat_normalize(num, scale);
+}
+
+fn rat_to_string(a: &Rational) -> String {
+    let ns = bi_to_decimal_string(&a.num);
+    if bi_cmp(&a.den, &bi_from_u64(1)) == 0 {
+        return ns;
+    };
+    let ds = bi_to_decimal_string(&a.den);
+    return format("{}/{}", ns, ds);
+}
+
+// Decimal expansion, truncated (never rounded) at max_places digits;
+// exact when the expansion terminates earlier. Display only —
+// judgments always use the rational itself.
+fn rat_to_decimal_string(a: &Rational, max_places: u64) -> String {
+    let an = bi_abs(&a.num);
+    let (ip, rem0) = bi_divmod_abs(&an, &a.den);
+    let out = bi_to_decimal_string(&ip);
+    if a.num.neg {
+        out = format("-{}", out);
+    };
+    if bi_is_zero(&rem0) {
+        return out;
+    };
+    out = format("{}.", out);
+    let rem = rem0;
+    let placed: u64 = 0;
+    let done = bi_is_zero(&rem);
+    while !done {
+        if placed >= max_places {
+            done = true;
+        } else {
+            rem = bi_mul_small(&rem, 10);
+            let (digit, nr) = bi_divmod_abs(&rem, &a.den);
+            let ds = bi_to_decimal_string(&digit);
+            out = format("{}{}", out, ds);
+            rem = nr;
+            placed = placed + 1;
+            if bi_is_zero(&rem) {
+                done = true;
+            };
+        };
+    }
+    return out;
+}

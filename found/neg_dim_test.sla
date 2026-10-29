@@ -1,0 +1,14 @@
+// Negative corpus: adding kg + s must panic loudly with code 8303.
+// Expected runner output: [FAIL] plus "panic: code=8303".
+// run_tests.sh asserts the panic code appears; if this test ever
+// PASSES instead, the dimension check is broken and the run fails.
+
+@import "quantity.sla"
+
+@test "neg add mismatched dimensions panics"() {
+    let a = qty_parse(&format("1"), &format("kg"));
+    let b = qty_parse(&format("1"), &format("s"));
+    let c = qty_add(&a, &b);
+    let s = qty_to_string(&c);
+    if len(s) == 999999 { panic(3999); };
+}

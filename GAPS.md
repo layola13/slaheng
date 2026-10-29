@@ -16,3 +16,31 @@
   离子式建模处理并在 kb/README.md 存疑清单登记。目标版本若被指定为其他版本，须整集复核。
 - **方程式 conditions 为自由文本**（点燃/加热/催化剂/光照等未枚举化）：结构化条件
   （与 lang 线表层语法对齐）候后续契约修订，本线不私自定枚举。
+
+## found 线（精确数与量纲）
+
+- **零 Python 声明（用户 2026-10-29 22:55 新规）**：本线交付物无任何 Python
+  文件、无 Python 运行时依赖；校验与测试全部在 SLA 语料内完成，运行脚本
+  `found/run_tests.sh` 为 bash 薄封装（与 sa_plugin_sla 自家
+  run_tests_batched.sh 同形态，只排序调用 `sla` 并断言证据行）。开发过程中
+  曾用一次性文本脚本调整源码格式（分号风格），未入仓、非交付物，新规到达
+  后已停用，后续格式修正全部手工完成。
+- **SAB 后端缺口：`String.as_bytes()` 在 SAB 后端报 UnknownRegister**
+  （trap 1007）：found 语料（含字符串解析的用例）在 SAB 后端不可跑，
+  故 `run_tests.sh` 固定 `--test-backend sa`（text 后端）。属编译器后端
+  缺口，非本线可修；SAB 后端修复后应把语料切为双后端各跑一遍再升级口径。
+- **text 后端验证器 PhiStateConflict（fam4 同族）**：String 绑定跨分支
+  合并点改赋值（如 `let u = a.unit; if ... { u = b.unit; }`）在
+  qty_add 处触发 trap 1015。本线已以 return 式选择助手
+  （`qty_pick_unit`）绕行并通过；根因在 SA 验证器，登记于此备查。
+- **`sla build-exe` 在本机不可用（>300 s 无产出）**：本线导入链展开后
+  约数万行，2 核 VM 上 build-exe 全量 AOT 超时且无任何输出。负例证据
+  因此改走测试运行器的 panic 路径（neg_*_test.sla 期望 [FAIL] +
+  指定 panic 码），与诊断语料的通行判读方式一致；若将来 build-exe
+  可用，可补独立可执行负例。
+- **SLA 语言面约束（本线绕行记录，非缺口申报）**：`&&`/`||` 不短路
+  （下标守卫须用嵌套 if）；String 无拼接/push_str/下标/索引，
+  拼接走 `format("{}{}", ...)` 惯用法；`^self` 方法形态在本机构建上
+  类型不合，本线统一用自由函数 + `&T` 参数。均已在源码注释中标注。
+- **°C 语义约束不在本层**：绝对温度相加等物理无意义运算，本层只按
+  K 做算术、不拦截；语义层拦截属 check 线职责（见 found/README.md）。

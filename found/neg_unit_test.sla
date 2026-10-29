@@ -1,0 +1,12 @@
+// Negative corpus: an unknown unit must panic loudly with code 8301.
+// Expected runner output: [FAIL] plus "panic: code=8301".
+// run_tests.sh asserts the panic code appears; if this test ever
+// PASSES instead, the unit table lookup is broken and the run fails.
+
+@import "quantity.sla"
+
+@test "neg unknown unit panics"() {
+    let a = qty_parse(&format("1"), &format("furlong"));
+    let s = qty_to_string(&a);
+    if len(s) == 999999 { panic(3998); };
+}

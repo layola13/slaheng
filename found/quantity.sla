@@ -1,0 +1,225 @@
+// Heng found/ — dimension & quantity: exact values with physical
+// dimensions. A Quantity stores its value normalized to SI base
+// units (as a Rational) plus its 7-exponent dimension vector
+// (kg, m, s, A, K, mol, cd) and a display unit name.
+//
+// Rules (all loud, panic codes 83xx):
+// - add/sub/compare require identical dimensions (8303/8304);
+// - mul/div compose dimensions;
+// - unknown unit names are rejected (8301), and asking for a value
+//   in a unit of another dimension is rejected (8302).
+// - Degrees Celsius is an AFFINE unit: qty_make converts °C -> K by
+//   +273.15 exactly (5463/20). Temperature DIFFERENCES are plain K;
+//   adding two absolute °C quantities is arithmetically defined via
+//   K but physically meaningless — callers model deltas in K.
+
+@import "rational.sla"
+
+struct Dim {
+    kg: i32,
+    m: i32,
+    s: i32,
+    amp: i32,
+    k: i32,
+    mol: i32,
+    cd: i32,
+}
+
+fn dim7(kg: i32, m: i32, s: i32, amp: i32, k: i32, mol: i32, cd: i32) -> Dim {
+    return Dim { kg: kg, m: m, s: s, amp: amp, k: k, mol: mol, cd: cd };
+}
+
+fn dim_zero() -> Dim {
+    return dim7(0, 0, 0, 0, 0, 0, 0);
+}
+
+fn dim_eq(a: &Dim, b: &Dim) -> bool {
+    return a.kg == b.kg && a.m == b.m && a.s == b.s && a.amp == b.amp && a.k == b.k && a.mol == b.mol && a.cd == b.cd;
+}
+
+fn dim_add(a: &Dim, b: &Dim) -> Dim {
+    return dim7(a.kg + b.kg, a.m + b.m, a.s + b.s, a.amp + b.amp, a.k + b.k, a.mol + b.mol, a.cd + b.cd);
+}
+
+fn dim_sub(a: &Dim, b: &Dim) -> Dim {
+    return dim7(a.kg - b.kg, a.m - b.m, a.s - b.s, a.amp - b.amp, a.k - b.k, a.mol - b.mol, a.cd - b.cd);
+}
+
+fn dim_part(out: String, name: &String, e: i32) -> String {
+    if e == 0 {
+        return out;
+    };
+    let piece = format("{}", name);
+    if e != 1 {
+        piece = format("{}^{}", name, e);
+    };
+    if len(out) == 0 {
+        return piece;
+    };
+    return format("{}*{}", out, piece);
+}
+
+fn dim_to_string(d: &Dim) -> String {
+    let out = format("");
+    out = dim_part(out, &format("kg"), d.kg);
+    out = dim_part(out, &format("m"), d.m);
+    out = dim_part(out, &format("s"), d.s);
+    out = dim_part(out, &format("A"), d.amp);
+    out = dim_part(out, &format("K"), d.k);
+    out = dim_part(out, &format("mol"), d.mol);
+    out = dim_part(out, &format("cd"), d.cd);
+    if len(out) == 0 {
+        return format("1");
+    };
+    return out;
+}
+
+fn qstr_eq(a: &String, b: &String) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    if len(ab) != len(bb) { return false; };
+    let i: u64 = 0;
+    while i < len(ab) {
+        if ab[i] != bb[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn rat_i(x: i64) -> Rational {
+    return rat_from_i64(x);
+}
+
+fn rat_frac(p: i64, q: i64) -> Rational {
+    return rat_make(bi_from_i64(p), bi_from_i64(q));
+}
+
+// Unit table: name -> (found, dim, factor-to-SI, is_celsius_affine).
+// Factors are exact rationals. Covers SI base/derived units and the
+// units common in junior/senior-high chemistry and physics.
+fn unit_lookup(name: &String) -> (bool, Dim, Rational, bool) {
+    let no = dim_zero();
+    if qstr_eq(name, &format("kg")) { return (true, dim7(1, 0, 0, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("g")) { return (true, dim7(1, 0, 0, 0, 0, 0, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("mg")) { return (true, dim7(1, 0, 0, 0, 0, 0, 0), rat_frac(1, 1000000), false); };
+    if qstr_eq(name, &format("t")) { return (true, dim7(1, 0, 0, 0, 0, 0, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("m")) { return (true, dim7(0, 1, 0, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("km")) { return (true, dim7(0, 1, 0, 0, 0, 0, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("cm")) { return (true, dim7(0, 1, 0, 0, 0, 0, 0), rat_frac(1, 100), false); };
+    if qstr_eq(name, &format("mm")) { return (true, dim7(0, 1, 0, 0, 0, 0, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("s")) { return (true, dim7(0, 0, 1, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("min")) { return (true, dim7(0, 0, 1, 0, 0, 0, 0), rat_i(60), false); };
+    if qstr_eq(name, &format("h")) { return (true, dim7(0, 0, 1, 0, 0, 0, 0), rat_i(3600), false); };
+    if qstr_eq(name, &format("A")) { return (true, dim7(0, 0, 0, 1, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("mA")) { return (true, dim7(0, 0, 0, 1, 0, 0, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("K")) { return (true, dim7(0, 0, 0, 0, 1, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("°C")) { return (true, dim7(0, 0, 0, 0, 1, 0, 0), rat_i(1), true); };
+    if qstr_eq(name, &format("mol")) { return (true, dim7(0, 0, 0, 0, 0, 1, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("mmol")) { return (true, dim7(0, 0, 0, 0, 0, 1, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("cd")) { return (true, dim7(0, 0, 0, 0, 0, 0, 1), rat_i(1), false); };
+    if qstr_eq(name, &format("L")) { return (true, dim7(0, 3, 0, 0, 0, 0, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("mL")) { return (true, dim7(0, 3, 0, 0, 0, 0, 0), rat_frac(1, 1000000), false); };
+    if qstr_eq(name, &format("cm3")) { return (true, dim7(0, 3, 0, 0, 0, 0, 0), rat_frac(1, 1000000), false); };
+    if qstr_eq(name, &format("J")) { return (true, dim7(1, 2, 0 - 2, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("kJ")) { return (true, dim7(1, 2, 0 - 2, 0, 0, 0, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("MJ")) { return (true, dim7(1, 2, 0 - 2, 0, 0, 0, 0), rat_i(1000000), false); };
+    if qstr_eq(name, &format("N")) { return (true, dim7(1, 1, 0 - 2, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("W")) { return (true, dim7(1, 2, 0 - 3, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("Pa")) { return (true, dim7(1, 0 - 1, 0 - 2, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("kPa")) { return (true, dim7(1, 0 - 1, 0 - 2, 0, 0, 0, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("mol/L")) { return (true, dim7(0, 0 - 3, 0, 0, 0, 1, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("g/mol")) { return (true, dim7(1, 0, 0, 0, 0, 0 - 1, 0), rat_frac(1, 1000), false); };
+    if qstr_eq(name, &format("g/cm3")) { return (true, dim7(1, 0 - 3, 0, 0, 0, 0, 0), rat_i(1000), false); };
+    if qstr_eq(name, &format("kg/m3")) { return (true, dim7(1, 0 - 3, 0, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("m/s")) { return (true, dim7(0, 1, 0 - 1, 0, 0, 0, 0), rat_i(1), false); };
+    if qstr_eq(name, &format("km/h")) { return (true, dim7(0, 1, 0 - 1, 0, 0, 0, 0), rat_frac(5, 18), false); };
+    return (false, no, rat_i(0), false);
+}
+
+struct Quantity {
+    si: Rational,
+    dim: Dim,
+    unit: String,
+}
+
+fn qty_make(value: Rational, unit: &String) -> Quantity {
+    let (found, dim, factor, affine) = unit_lookup(unit);
+    if !found { panic(8301); };
+    if affine {
+        let offset = rat_frac(5463, 20);
+        let k = rat_add(&value, &offset);
+        return Quantity { si: k, dim: dim, unit: format("{}", unit) };
+    };
+    let si = rat_mul(&value, &factor);
+    return Quantity { si: si, dim: dim, unit: format("{}", unit) };
+}
+
+// convenience: qty_parse("1.5", "kg")
+fn qty_parse(value: &String, unit: &String) -> Quantity {
+    let v = rat_parse(value);
+    return qty_make(v, unit);
+}
+
+fn qty_value_in(q: &Quantity, unit: &String) -> Rational {
+    let (found, dim, factor, affine) = unit_lookup(unit);
+    if !found { panic(8301); };
+    if !dim_eq(&dim, &q.dim) { panic(8302); };
+    if affine {
+        let offset = rat_frac(5463, 20);
+        return rat_sub(&q.si, &offset);
+    };
+    return rat_div(&q.si, &factor);
+}
+
+// return-style unit pick (a String binding conditionally reassigned
+// across a branch merge trips the text-backend verifier, fam4 class)
+fn qty_pick_unit(a: &Quantity, b: &Quantity) -> String {
+    if len(a.unit) != 0 {
+        return format("{}", a.unit);
+    };
+    return format("{}", b.unit);
+}
+
+fn qty_add(a: &Quantity, b: &Quantity) -> Quantity {
+    if !dim_eq(&a.dim, &b.dim) { panic(8303); };
+    let si = rat_add(&a.si, &b.si);
+    let u = qty_pick_unit(a, b);
+    let dd = dim7(a.dim.kg, a.dim.m, a.dim.s, a.dim.amp, a.dim.k, a.dim.mol, a.dim.cd);
+    return Quantity { si: si, dim: dd, unit: u };
+}
+
+fn qty_sub(a: &Quantity, b: &Quantity) -> Quantity {
+    if !dim_eq(&a.dim, &b.dim) { panic(8303); };
+    let si = rat_sub(&a.si, &b.si);
+    let u = qty_pick_unit(a, b);
+    let dd = dim7(a.dim.kg, a.dim.m, a.dim.s, a.dim.amp, a.dim.k, a.dim.mol, a.dim.cd);
+    return Quantity { si: si, dim: dd, unit: u };
+}
+
+fn qty_mul(a: &Quantity, b: &Quantity) -> Quantity {
+    let si = rat_mul(&a.si, &b.si);
+    let dd = dim_add(&a.dim, &b.dim);
+    return Quantity { si: si, dim: dd, unit: format("") };
+}
+
+fn qty_div(a: &Quantity, b: &Quantity) -> Quantity {
+    let si = rat_div(&a.si, &b.si);
+    let dd = dim_sub(&a.dim, &b.dim);
+    return Quantity { si: si, dim: dd, unit: format("") };
+}
+
+fn qty_cmp(a: &Quantity, b: &Quantity) -> i32 {
+    if !dim_eq(&a.dim, &b.dim) { panic(8304); };
+    return rat_cmp(&a.si, &b.si);
+}
+
+fn qty_to_string(q: &Quantity) -> String {
+    if len(q.unit) != 0 {
+        let v = qty_value_in(q, &q.unit);
+        let vs = rat_to_decimal_string(&v, 10);
+        return format("{} {}", vs, q.unit);
+    };
+    let vs = rat_to_decimal_string(&q.si, 10);
+    let ds = dim_to_string(&q.dim);
+    return format("{} {}", vs, ds);
+}

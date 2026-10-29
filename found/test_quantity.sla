@@ -1,0 +1,98 @@
+// Heng found/ — quantity unit corpus.
+
+@import "quantity.sla"
+
+fn eq_str(a: &String, b: &String) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    if len(ab) != len(bb) { return false; };
+    let i: u64 = 0;
+    while i < len(ab) {
+        if ab[i] != bb[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn expect_val(q: &Quantity, unit: &String, want: &String, code: i64) {
+    let v = qty_value_in(q, unit);
+    let got = rat_to_string(&v);
+    if !eq_str(&got, want) { panic(code); };
+}
+
+fn expect_val_dec(q: &Quantity, unit: &String, want: &String, code: i64) {
+    let v = qty_value_in(q, unit);
+    let got = rat_to_decimal_string(&v, 10);
+    if !eq_str(&got, want) { panic(code); };
+}
+
+fn expect_str(got: &String, want: &String, code: i64) {
+    if !eq_str(got, want) { panic(code); };
+}
+
+@test "quantity add same dimension mixed units"() {
+    let a = qty_parse(&format("1"), &format("kg"));
+    let b = qty_parse(&format("500"), &format("g"));
+    let s = qty_add(&a, &b);
+    expect_val(&s, &format("kg"), &format("3/2"), 3001);
+    expect_val(&s, &format("g"), &format("1500"), 3002);
+    let c = qty_parse(&format("2"), &format("L"));
+    let d = qty_parse(&format("300"), &format("mL"));
+    let v = qty_add(&c, &d);
+    expect_val_dec(&v, &format("L"), &format("2.3"), 3003);
+    let t = qty_sub(&qty_parse(&format("1"), &format("h")), &qty_parse(&format("30"), &format("min")));
+    expect_val(&t, &format("min"), &format("30"), 3004);
+}
+
+@test "quantity celsius affine"() {
+    let c = qty_parse(&format("25"), &format("°C"));
+    expect_val_dec(&c, &format("K"), &format("298.15"), 3011);
+    expect_val_dec(&c, &format("°C"), &format("25"), 3012);
+    let z = qty_parse(&format("0"), &format("°C"));
+    expect_val_dec(&z, &format("K"), &format("273.15"), 3013);
+    let cold = qty_parse(&format("-40"), &format("°C"));
+    expect_val_dec(&cold, &format("K"), &format("233.15"), 3014);
+}
+
+@test "quantity mul div compose dimensions"() {
+    let conc = qty_parse(&format("3"), &format("mol/L"));
+    let vol = qty_parse(&format("2"), &format("L"));
+    let amount = qty_mul(&conc, &vol);
+    expect_val(&amount, &format("mol"), &format("6"), 3021);
+    expect_str(&dim_to_string(&amount.dim), &format("mol"), 3022);
+    let dist = qty_parse(&format("10"), &format("m"));
+    let time = qty_parse(&format("4"), &format("s"));
+    let speed = qty_div(&dist, &time);
+    expect_val(&speed, &format("m/s"), &format("5/2"), 3023);
+    expect_str(&dim_to_string(&speed.dim), &format("m*s^-1"), 3024);
+    let mm = qty_parse(&format("18"), &format("g/mol"));
+    let mass = qty_mul(&mm, &qty_parse(&format("2"), &format("mol")));
+    expect_val(&mass, &format("g"), &format("36"), 3025);
+}
+
+@test "quantity conversions and cmp"() {
+    let e = qty_parse(&format("2"), &format("kJ"));
+    expect_val(&e, &format("J"), &format("2000"), 3031);
+    expect_str(&dim_to_string(&e.dim), &format("kg*m^2*s^-2"), 3032);
+    let v = qty_parse(&format("36"), &format("km/h"));
+    expect_val(&v, &format("m/s"), &format("10"), 3033);
+    let rho = qty_parse(&format("2.7"), &format("g/cm3"));
+    expect_val(&rho, &format("kg/m3"), &format("2700"), 3034);
+    let km = qty_parse(&format("1"), &format("km"));
+    let m999 = qty_parse(&format("999"), &format("m"));
+    if qty_cmp(&km, &m999) != 1 { panic(3035); };
+    let g500 = qty_parse(&format("500"), &format("g"));
+    let kg05 = qty_parse(&format("0.5"), &format("kg"));
+    if qty_cmp(&g500, &kg05) != 0 { panic(3036); };
+}
+
+@test "quantity to string"() {
+    let a = qty_parse(&format("1.5"), &format("kg"));
+    expect_str(&qty_to_string(&a), &format("1.5 kg"), 3041);
+    let conc = qty_parse(&format("3"), &format("mol/L"));
+    let amount = qty_mul(&conc, &qty_parse(&format("2"), &format("L")));
+    expect_str(&qty_to_string(&amount), &format("6 mol"), 3042);
+    let dimensionless = qty_div(&qty_parse(&format("6"), &format("m")), &qty_parse(&format("3"), &format("m")));
+    expect_str(&dim_to_string(&dimensionless.dim), &format("1"), 3043);
+    expect_str(&rat_to_string(&dimensionless.si), &format("2"), 3044);
+}

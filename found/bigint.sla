@@ -1,0 +1,466 @@
+// Heng found/ — bigint: arbitrary-precision signed integer.
+//
+// Representation: sign flag + little-endian base-2^32 limbs (Vec<u32>).
+// Normalized form: no trailing zero limbs; zero is an empty limb vector
+// with neg == false. All operations preserve normalization.
+// Panic codes 81xx are this module's loud-failure codes (no silent
+// fallback anywhere in found/).
+
+struct BigInt {
+    neg: bool,
+    mag: Vec<u32>,
+}
+
+fn bi_norm(neg: bool, mag: Vec<u32>) -> BigInt {
+    let n = len(mag);
+    // NOTE: SLA && does not short-circuit; trim with nested ifs only.
+    let done = false;
+    while !done {
+        if n == 0 {
+            done = true;
+        } else {
+            if mag[n - 1] == 0 {
+                n = n - 1;
+            } else {
+                done = true;
+            }
+        }
+    }
+    let out: Vec<u32> = Vec::new();
+    let i: u64 = 0;
+    while i < n {
+        out.push(mag[i]);
+        i = i + 1;
+    }
+    if n == 0 {
+        return BigInt { neg: false, mag: out };
+    };
+    return BigInt { neg: neg, mag: out };
+}
+
+fn bi_zero() -> BigInt {
+    let v: Vec<u32> = Vec::new();
+    return BigInt { neg: false, mag: v };
+}
+
+fn bi_is_zero(a: &BigInt) -> bool {
+    return len(a.mag) == 0;
+}
+
+fn bi_clone(a: &BigInt) -> BigInt {
+    let out: Vec<u32> = Vec::new();
+    let i: u64 = 0;
+    while i < len(a.mag) {
+        out.push(a.mag[i]);
+        i = i + 1;
+    }
+    return BigInt { neg: a.neg, mag: out };
+}
+
+// magnitude copy with sign cleared
+fn bi_abs(a: &BigInt) -> BigInt {
+    let out: Vec<u32> = Vec::new();
+    let i: u64 = 0;
+    while i < len(a.mag) {
+        out.push(a.mag[i]);
+        i = i + 1;
+    }
+    return BigInt { neg: false, mag: out };
+}
+
+fn bi_from_u64(x: u64) -> BigInt {
+    let v: Vec<u32> = Vec::new();
+    let lo = (x & 4294967295) as u32;
+    let hi = (x >> 32) as u32;
+    if lo != 0 || hi != 0 {
+        v.push(lo);
+    };
+    if hi != 0 {
+        v.push(hi);
+    };
+    return BigInt { neg: false, mag: v };
+}
+
+fn bi_from_i64(x: i64) -> BigInt {
+    if x >= 0 {
+        return bi_from_u64(x as u64);
+    };
+    // two's-complement wrap gives |x| without trapping on negation
+    let ux = x as u64;
+    let mag = 0 - ux;
+    let r = bi_from_u64(mag);
+    return BigInt { neg: true, mag: r.mag };
+}
+
+// magnitude comparison: -1, 0, 1
+fn bi_cmp_abs(a: &BigInt, b: &BigInt) -> i32 {
+    let la = len(a.mag);
+    let lb = len(b.mag);
+    if la != lb {
+        if la < lb { return 0 - 1; };
+        return 1;
+    };
+    let i = la;
+    while i > 0 {
+        i = i - 1;
+        if a.mag[i] != b.mag[i] {
+            if a.mag[i] < b.mag[i] { return 0 - 1; };
+            return 1;
+        };
+    }
+    return 0;
+}
+
+// signed comparison: -1, 0, 1
+fn bi_cmp(a: &BigInt, b: &BigInt) -> i32 {
+    if a.neg != b.neg {
+        if a.neg { return 0 - 1; };
+        return 1;
+    };
+    let c = bi_cmp_abs(a, b);
+    if a.neg { return 0 - c; };
+    return c;
+}
+
+fn bi_add_abs(a: &BigInt, b: &BigInt) -> BigInt {
+    let out: Vec<u32> = Vec::new();
+    let la = len(a.mag);
+    let lb = len(b.mag);
+    let n = la;
+    if lb > n { n = lb; };
+    let carry: u64 = 0;
+    let i: u64 = 0;
+    while i < n {
+        let av: u64 = 0;
+        if i < la { av = a.mag[i] as u64; };
+        let bv: u64 = 0;
+        if i < lb { bv = b.mag[i] as u64; };
+        let s = av + bv + carry;
+        out.push((s & 4294967295) as u32);
+        carry = s >> 32;
+        i = i + 1;
+    }
+    if carry != 0 {
+        out.push(carry as u32);
+    };
+    return bi_norm(false, out);
+}
+
+// requires |a| >= |b|
+fn bi_sub_abs(a: &BigInt, b: &BigInt) -> BigInt {
+    let out: Vec<u32> = Vec::new();
+    let la = len(a.mag);
+    let lb = len(b.mag);
+    let borrow: u64 = 0;
+    let i: u64 = 0;
+    while i < la {
+        let av = a.mag[i] as u64;
+        let bv: u64 = 0;
+        if i < lb { bv = b.mag[i] as u64; };
+        let need = bv + borrow;
+        if av >= need {
+            out.push((av - need) as u32);
+            borrow = 0;
+        } else {
+            out.push((av + 4294967296 - need) as u32);
+            borrow = 1;
+        };
+        i = i + 1;
+    }
+    if borrow != 0 { panic(8101); };
+    return bi_norm(false, out);
+}
+
+// copy with an explicit sign (zero is always unsigned)
+fn bi_with_sign(a: &BigInt, neg: bool) -> BigInt {
+    let c = bi_clone(a);
+    if bi_is_zero(&c) {
+        return c;
+    };
+    return BigInt { neg: neg, mag: c.mag };
+}
+
+fn bi_neg(a: &BigInt) -> BigInt {
+    let r = bi_clone(a);
+    if bi_is_zero(a) {
+        return r;
+    };
+    return BigInt { neg: !a.neg, mag: r.mag };
+}
+
+fn bi_add(a: &BigInt, b: &BigInt) -> BigInt {
+    if a.neg == b.neg {
+        let r = bi_add_abs(a, b);
+        if bi_is_zero(&r) { return r; };
+        return BigInt { neg: a.neg, mag: r.mag };
+    };
+    let c = bi_cmp_abs(a, b);
+    if c == 0 {
+        return bi_zero();
+    };
+    if c > 0 {
+        let r = bi_sub_abs(a, b);
+        return BigInt { neg: a.neg, mag: r.mag };
+    };
+    let r2 = bi_sub_abs(b, a);
+    return BigInt { neg: b.neg, mag: r2.mag };
+}
+
+fn bi_sub(a: &BigInt, b: &BigInt) -> BigInt {
+    let nb = bi_neg(b);
+    return bi_add(a, &nb);
+}
+
+fn bi_mul(a: &BigInt, b: &BigInt) -> BigInt {
+    if bi_is_zero(a) || bi_is_zero(b) {
+        return bi_zero();
+    };
+    let la = len(a.mag);
+    let lb = len(b.mag);
+    let out: Vec<u32> = Vec::new();
+    let i: u64 = 0;
+    while i < la + lb {
+        out.push(0);
+        i = i + 1;
+    }
+    let x: u64 = 0;
+    while x < la {
+        let carry: u64 = 0;
+        let y: u64 = 0;
+        while y < lb {
+            let idx = x + y;
+            let cur = out[idx] as u64 + (a.mag[x] as u64) * (b.mag[y] as u64) + carry;
+            out[idx] = (cur & 4294967295) as u32;
+            carry = cur >> 32;
+            y = y + 1;
+        }
+        let idx2 = x + lb;
+        out[idx2] = (out[idx2] as u64 + carry) as u32;
+        x = x + 1;
+    }
+    let r = bi_norm(a.neg != b.neg, out);
+    return r;
+}
+
+fn bi_mul_small(a: &BigInt, m: u32) -> BigInt {
+    if m == 0 || bi_is_zero(a) {
+        return bi_zero();
+    };
+    let out: Vec<u32> = Vec::new();
+    let carry: u64 = 0;
+    let i: u64 = 0;
+    while i < len(a.mag) {
+        let cur = (a.mag[i] as u64) * (m as u64) + carry;
+        out.push((cur & 4294967295) as u32);
+        carry = cur >> 32;
+        i = i + 1;
+    }
+    if carry != 0 {
+        out.push(carry as u32);
+    };
+    return BigInt { neg: a.neg, mag: out };
+}
+
+// divide magnitude by a single nonzero limb; returns (quotient, remainder)
+fn bi_divmod_small(a: &BigInt, d: u32) -> (BigInt, u32) {
+    if d == 0 { panic(8102); };
+    if bi_is_zero(a) {
+        return (bi_zero(), 0);
+    };
+    let out: Vec<u32> = Vec::new();
+    let i: u64 = 0;
+    while i < len(a.mag) {
+        out.push(0);
+        i = i + 1;
+    }
+    let rem: u64 = 0;
+    let j = len(a.mag);
+    while j > 0 {
+        j = j - 1;
+        let cur = (rem << 32) | (a.mag[j] as u64);
+        out[j] = (cur / (d as u64)) as u32;
+        rem = cur % (d as u64);
+    }
+    let q = bi_norm(a.neg, out);
+    return (q, rem as u32);
+}
+
+fn bi_bit_len(a: &BigInt) -> u64 {
+    let n = len(a.mag);
+    if n == 0 { return 0; };
+    let top = a.mag[n - 1];
+    let bits: u64 = 0;
+    let t = top;
+    while t != 0 {
+        bits = bits + 1;
+        t = t >> 1;
+    }
+    return ((n - 1) as u64) * 32 + bits;
+}
+
+fn bi_get_bit(a: &BigInt, i: u64) -> u32 {
+    let limb = i / 32;
+    if limb >= len(a.mag) { return 0; };
+    let off = i % 32;
+    return (a.mag[limb] >> off) & 1;
+}
+
+fn bi_set_bit(a: &BigInt, i: u64) {
+    let limb = i / 32;
+    while len(a.mag) <= limb {
+        a.mag.push(0);
+    }
+    let off = i % 32;
+    a.mag[limb] = a.mag[limb] | (1 << off);
+}
+
+// shift magnitude left by one bit, in place (a must be a scratch value)
+fn bi_shl1(a: &BigInt) {
+    let carry: u32 = 0;
+    let i: u64 = 0;
+    while i < len(a.mag) {
+        let cur = a.mag[i];
+        a.mag[i] = (cur << 1) | carry;
+        carry = cur >> 31;
+        i = i + 1;
+    }
+    if carry != 0 {
+        a.mag.push(carry);
+    };
+}
+
+// full division on magnitudes via bit long division (sizes in this
+// engine are education-scale; clarity beats asymptotics here).
+// returns (quotient, remainder), both non-negative magnitudes.
+fn bi_divmod_abs(a: &BigInt, b: &BigInt) -> (BigInt, BigInt) {
+    if bi_is_zero(b) { panic(8103); };
+    if bi_cmp_abs(a, b) < 0 {
+        return (bi_zero(), bi_clone(a));
+    };
+    let q = bi_zero();
+    let rem = bi_zero();
+    let bits = bi_bit_len(a);
+    let i = bits;
+    while i > 0 {
+        i = i - 1;
+        bi_shl1(&rem);
+        if bi_get_bit(a, i) == 1 {
+            if len(rem.mag) == 0 {
+                rem.mag.push(1);
+            } else {
+                rem.mag[0] = rem.mag[0] | 1;
+            };
+        };
+        if bi_cmp_abs(&rem, b) >= 0 {
+            let nr = bi_sub_abs(&rem, b);
+            rem = BigInt { neg: false, mag: nr.mag };
+            bi_set_bit(&q, i);
+        };
+    }
+    let qq = bi_norm(false, q.mag);
+    let rr = bi_norm(false, rem.mag);
+    return (qq, rr);
+}
+
+// signed divmod: quotient truncated toward zero, remainder takes the
+// sign of the dividend (matches i64 / and % semantics).
+fn bi_divmod(a: &BigInt, b: &BigInt) -> (BigInt, BigInt) {
+    if bi_is_zero(b) { panic(8104); };
+    let (q, r) = bi_divmod_abs(a, b);
+    let qneg = (a.neg != b.neg) && !bi_is_zero(&q);
+    let rneg = a.neg && !bi_is_zero(&r);
+    let qq = bi_with_sign(&q, qneg);
+    let rr = bi_with_sign(&r, rneg);
+    return (qq, rr);
+}
+
+fn bi_gcd(a: &BigInt, b: &BigInt) -> BigInt {
+    let x = bi_abs(a);
+    let y = bi_abs(b);
+    while !bi_is_zero(&y) {
+        let (_, r) = bi_divmod_abs(&x, &y);
+        x = bi_clone(&y);
+        y = r;
+    }
+    return x;
+}
+
+// ---- decimal strings ----
+
+fn bi_is_valid_decimal(s: &String) -> bool {
+    let bs = s.as_bytes();
+    let n = len(bs);
+    if n == 0 { return false; };
+    let i: u64 = 0;
+    if bs[0] == 45 {
+        if n == 1 { return false; };
+        i = 1;
+    };
+    while i < n {
+        if bs[i] < 48 || bs[i] > 57 { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// parse a decimal integer string (optional leading '-'); loud panic
+// 8105 on malformed input — no silent zero.
+fn bi_parse_decimal(s: &String) -> BigInt {
+    let bs = s.as_bytes();
+    if !bi_is_valid_decimal(s) { panic(8105); };
+    let neg = bs[0] == 45;
+    let r = bi_zero();
+    let i: u64 = 0;
+    if neg { i = 1; };
+    while i < len(bs) {
+        let d = (bs[i] - 48) as u32;
+        r = bi_mul_small(&r, 10);
+        if d != 0 {
+            let dd = bi_from_u64(d as u64);
+            r = bi_add_abs(&r, &dd);
+        };
+        i = i + 1;
+    }
+    if neg && !bi_is_zero(&r) {
+        return BigInt { neg: true, mag: r.mag };
+    };
+    return r;
+}
+
+fn bi_chunk_str(x: u32) -> String {
+    return format("{}", x);
+}
+
+fn bi_chunk_str_padded(x: u32) -> String {
+    let s = format("{}", x);
+    let n = len(s);
+    while n < 9 {
+        s = format("0{}", s);
+        n = n + 1;
+    }
+    return s;
+}
+
+fn bi_to_decimal_string(a: &BigInt) -> String {
+    if bi_is_zero(a) {
+        return format("0");
+    };
+    let chunks: Vec<u32> = Vec::new();
+    let cur = bi_abs(a);
+    while !bi_is_zero(&cur) {
+        let (q, r) = bi_divmod_small(&cur, 1000000000);
+        chunks.push(r);
+        cur = q;
+    }
+    let top = len(chunks) - 1;
+    let out = bi_chunk_str(chunks[top]);
+    let i = top;
+    while i > 0 {
+        i = i - 1;
+        out = format("{}{}", out, bi_chunk_str_padded(chunks[i]));
+    }
+    if a.neg {
+        return format("-{}", out);
+    };
+    return out;
+}

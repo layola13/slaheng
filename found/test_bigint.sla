@@ -1,0 +1,109 @@
+// Heng found/ — bigint unit corpus. Each @test panics with a unique
+// code on failure; the runner reports per-test results.
+
+@import "bigint.sla"
+
+fn eq_str(a: &String, b: &String) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    if len(ab) != len(bb) { return false; };
+    let i: u64 = 0;
+    while i < len(ab) {
+        if ab[i] != bb[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn expect_dec(a: &BigInt, want: &String, code: i64) {
+    let got = bi_to_decimal_string(a);
+    if !eq_str(&got, want) { panic(code); };
+}
+
+@test "bigint parse and print roundtrip"() {
+    let a = bi_parse_decimal(&format("0"));
+    expect_dec(&a, &format("0"), 1001);
+    let b = bi_parse_decimal(&format("-987654321098765432109876543210"));
+    expect_dec(&b, &format("-987654321098765432109876543210"), 1002);
+    let c = bi_parse_decimal(&format("1000000000000000000000000000"));
+    expect_dec(&c, &format("1000000000000000000000000000"), 1003);
+    let d = bi_from_i64(0 - 42);
+    expect_dec(&d, &format("-42"), 1004);
+    let e = bi_from_i64(9000000000000000000);
+    expect_dec(&e, &format("9000000000000000000"), 1005);
+}
+
+@test "bigint add sub signs"() {
+    let a = bi_parse_decimal(&format("123456789123456789"));
+    let b = bi_parse_decimal(&format("987654321987654321"));
+    let s = bi_add(&a, &b);
+    expect_dec(&s, &format("1111111111111111110"), 1011);
+    let back = bi_sub(&s, &b);
+    expect_dec(&back, &format("123456789123456789"), 1012);
+    let neg = bi_sub(&a, &b);
+    expect_dec(&neg, &format("-864197532864197532"), 1013);
+    let z = bi_add(&a, &neg);
+    // a + (-(b-a)) = 2a - b
+    let a2 = bi_add(&a, &a);
+    let want = bi_sub(&a2, &b);
+    if bi_cmp(&z, &want) != 0 { panic(1014); };
+    let zz = bi_sub(&a, &a);
+    if !bi_is_zero(&zz) { panic(1015); };
+    if zz.neg { panic(1016); };
+}
+
+@test "bigint mul"() {
+    let a = bi_parse_decimal(&format("99999999999999999999"));
+    let sq = bi_mul(&a, &a);
+    expect_dec(&sq, &format("9999999999999999999800000000000000000001"), 1021);
+    let b = bi_parse_decimal(&format("-12345679"));
+    let c = bi_parse_decimal(&format("81"));
+    let p = bi_mul(&b, &c);
+    expect_dec(&p, &format("-999999999"), 1022);
+    let z = bi_mul(&a, &bi_zero());
+    if !bi_is_zero(&z) { panic(1023); };
+}
+
+@test "bigint divmod"() {
+    let a = bi_parse_decimal(&format("1000000000000000000000"));
+    let b = bi_parse_decimal(&format("7"));
+    let (q, r) = bi_divmod(&a, &b);
+    expect_dec(&q, &format("142857142857142857142"), 1031);
+    expect_dec(&r, &format("6"), 1032);
+    // negative dividend: truncate toward zero, remainder sign of dividend
+    let na = bi_neg(&a);
+    let (q2, r2) = bi_divmod(&na, &b);
+    expect_dec(&q2, &format("-142857142857142857142"), 1033);
+    expect_dec(&r2, &format("-6"), 1034);
+    // q*b + r == a
+    let recomposed = bi_add(&bi_mul(&q, &b), &r);
+    if bi_cmp(&recomposed, &a) != 0 { panic(1035); };
+    let small = bi_parse_decimal(&format("3"));
+    let (q3, r3) = bi_divmod(&small, &b);
+    if !bi_is_zero(&q3) { panic(1036); };
+    expect_dec(&r3, &format("3"), 1037);
+}
+
+@test "bigint gcd"() {
+    let a = bi_parse_decimal(&format("1071"));
+    let b = bi_parse_decimal(&format("462"));
+    let g = bi_gcd(&a, &b);
+    expect_dec(&g, &format("21"), 1041);
+    let c = bi_parse_decimal(&format("999999999999999999999999"));
+    let d = bi_parse_decimal(&format("27"));
+    let g2 = bi_gcd(&c, &d);
+    expect_dec(&g2, &format("27"), 1042);
+    let g3 = bi_gcd(&a, &bi_zero());
+    expect_dec(&g3, &format("1071"), 1043);
+}
+
+@test "bigint cmp"() {
+    let a = bi_parse_decimal(&format("-5"));
+    let b = bi_parse_decimal(&format("3"));
+    if bi_cmp(&a, &b) != 0 - 1 { panic(1051); };
+    if bi_cmp(&b, &a) != 1 { panic(1052); };
+    let c = bi_parse_decimal(&format("-5"));
+    if bi_cmp(&a, &c) != 0 { panic(1053); };
+    let d = bi_parse_decimal(&format("-100"));
+    if bi_cmp(&d, &a) != 0 - 1 { panic(1054); };
+}
