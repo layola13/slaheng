@@ -1,0 +1,262 @@
+// check/tests/test_c1.sla —— C1 检验层验收语料（逐项断言，panic 码 31xx）
+// 判读口径：sla test 输出须含 "test result: ok" 且失败名集为空（四联判读）。
+
+@import "../c1.sla"
+
+// ---------- 交付 1：配平检查 ----------
+
+@test "balance photosynthesis"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "CO2", 0, 6, true);
+    eq_add_lhs(&eq, "H2O", 0, 6, true);
+    eq_add_rhs(&eq, "C6H12O6", 0, 1, true);
+    eq_add_rhs(&eq, "O2", 0, 6, true);
+    if check_balance(&eq) != 0 { panic(3101); };
+}
+
+@test "balance respiration"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "C6H12O6", 0, 1, true);
+    eq_add_lhs(&eq, "O2", 0, 6, true);
+    eq_add_rhs(&eq, "CO2", 0, 6, true);
+    eq_add_rhs(&eq, "H2O", 0, 6, true);
+    if check_balance(&eq) != 0 { panic(3102); };
+}
+
+@test "balance missing H reports element only"() {
+    // 2H2O -> H2 + O2：H 左 4 右 2（缺），O 两侧皆 2；电荷皆 0
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2O", 0, 2, true);
+    eq_add_rhs(&eq, "H2", 0, 1, true);
+    eq_add_rhs(&eq, "O2", 0, 1, true);
+    if check_balance(&eq) != 1 { panic(3103); };
+}
+
+@test "balance charge only mismatch"() {
+    // 2Na+ + SO4(误标 -1) -> Na2SO4：元素全平，电荷左 +1 右 0
+    let eq = eq_new();
+    eq_add_lhs(&eq, "Na", 1, 2, true);
+    eq_add_lhs(&eq, "SO4", -1, 1, true);
+    eq_add_rhs(&eq, "Na2SO4", 0, 1, true);
+    if check_balance(&eq) != 2 { panic(3104); };
+}
+
+@test "balance both element and charge mismatch"() {
+    // Na+ + H2O -> NaOH + H2：H 左 2 右 3，电荷左 +1 右 0
+    let eq = eq_new();
+    eq_add_lhs(&eq, "Na", 1, 1, true);
+    eq_add_lhs(&eq, "H2O", 0, 1, true);
+    eq_add_rhs(&eq, "NaOH", 0, 1, true);
+    eq_add_rhs(&eq, "H2", 0, 1, true);
+    if check_balance(&eq) != 3 { panic(3105); };
+}
+
+@test "balance ionic equations pass"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H", 1, 1, true);
+    eq_add_lhs(&eq, "HCO3", -1, 1, true);
+    eq_add_rhs(&eq, "H2O", 0, 1, true);
+    eq_add_rhs(&eq, "CO2", 0, 1, true);
+    if check_balance(&eq) != 0 { panic(3106); };
+    let eq2 = eq_new();
+    eq_add_lhs(&eq2, "Fe", 2, 1, true);
+    eq_add_lhs(&eq2, "Cl", -1, 2, true);
+    eq_add_rhs(&eq2, "FeCl2", 0, 1, true);
+    if check_balance(&eq2) != 0 { panic(3107); };
+}
+
+@test "balance missing coeff is structural error"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 1, true);
+    if check_balance(&eq) != -1 { panic(3108); };
+}
+
+@test "balance unparseable species is structural error"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "Xx2", 0, 1, true);
+    eq_add_rhs(&eq, "H2O", 0, 1, true);
+    if check_balance(&eq) != -1 { panic(3109); };
+}
+
+// ---------- 交付 2：配平求解 ----------
+
+fn expect_solve(eq: &Equation, a: i64, b: i64, c: i64, d: i64, n: i64, code: i64) {
+    let res = solve_balance(eq);
+    if res.status != 0 { panic(code); };
+    if res.n != n { panic(code + 1); };
+    if res.coeffs[0] != a { panic(code + 2); };
+    if n > 1 && res.coeffs[1] != b { panic(code + 3); };
+    if n > 2 && res.coeffs[2] != c { panic(code + 4); };
+    if n > 3 && res.coeffs[3] != d { panic(code + 5); };
+}
+
+@test "solve water formation"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    expect_solve(&eq, 2, 1, 2, 0, 3, 3120);
+}
+
+@test "solve methane combustion"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "CH4", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_rhs(&eq, "CO2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    expect_solve(&eq, 1, 2, 1, 2, 4, 3130);
+}
+
+@test "solve respiration"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "C6H12O6", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_rhs(&eq, "CO2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    expect_solve(&eq, 1, 6, 6, 6, 4, 3140);
+}
+
+@test "solve photosynthesis"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "CO2", 0, 0, false);
+    eq_add_lhs(&eq, "H2O", 0, 0, false);
+    eq_add_rhs(&eq, "C6H12O6", 0, 0, false);
+    eq_add_rhs(&eq, "O2", 0, 0, false);
+    expect_solve(&eq, 6, 6, 1, 6, 4, 3150);
+}
+
+@test "solve iron oxidation"() {
+    let eq = eq_new();
+    eq_add_lhs(&eq, "Fe", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_rhs(&eq, "Fe2O3", 0, 0, false);
+    expect_solve(&eq, 4, 3, 2, 0, 3, 3160);
+}
+
+@test "solve no solution"() {
+    // H2 -> H2O：O 无来源，解空间维数 0
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    let res = solve_balance(&eq);
+    if res.status != 1 { panic(3170); };
+}
+
+@test "solve underdetermined"() {
+    // H2 + O2 -> H2O + H2O2：两个独立反应混合，解空间维数 2
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    eq_add_rhs(&eq, "H2O2", 0, 0, false);
+    let res = solve_balance(&eq);
+    if res.status != 2 { panic(3171); };
+    if res.nullity != 2 { panic(3172); };
+}
+
+@test "solve bad sign"() {
+    // H2O2 -> H2O + H2（如此分置两侧）：唯一解 [1, 2, -1] 异号
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2O2", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    eq_add_rhs(&eq, "H2", 0, 0, false);
+    let res = solve_balance(&eq);
+    if res.status != 3 { panic(3173); };
+}
+
+@test "solve zero coeff spectator"() {
+    // H2 + O2 + He -> H2O：He 只在一侧且惰性，唯一解中其系数必为 0
+    let eq = eq_new();
+    eq_add_lhs(&eq, "H2", 0, 0, false);
+    eq_add_lhs(&eq, "O2", 0, 0, false);
+    eq_add_lhs(&eq, "He", 0, 0, false);
+    eq_add_rhs(&eq, "H2O", 0, 0, false);
+    let res = solve_balance(&eq);
+    if res.status != 4 { panic(3174); };
+    if res.bad_index != 2 { panic(3175); };
+}
+
+// ---------- 交付 3：化合价检查 ----------
+
+@test "valence valid compounds"() {
+    if check_valence(&sp("Fe2(SO4)3")) != 1 { panic(3180); };
+    if check_valence(&sp("NaOH")) != 1 { panic(3181); };
+    if check_valence(&sp("H2SO4")) != 1 { panic(3182); };
+    if check_valence(&sp("Ca(OH)2")) != 1 { panic(3183); };
+    if check_valence(&sp("NH4Cl")) != 1 { panic(3184); };
+    if check_valence(&sp("KMnO4")) != 1 { panic(3185); };
+    if check_valence(&sp("H2O2")) != 1 { panic(3186); };
+    if check_valence(&sp("O2")) != 1 { panic(3187); };
+}
+
+@test "valence valid ions"() {
+    if check_valence(&spq("SO4", -2)) != 1 { panic(3188); };
+    if check_valence(&spq("NH4", 1)) != 1 { panic(3189); };
+}
+
+@test "valence invalid compounds"() {
+    if check_valence(&sp("NaCl2")) != 0 { panic(3190); };
+    if check_valence(&sp("FeCl")) != 0 { panic(3191); };
+}
+
+@test "valence organic out of model fails loudly"() {
+    // 葡萄糖：单价态模型内无分配（H 只取 +1 后 C/H/O 无解），响亮失败而非冒充通过
+    if check_valence(&sp("C6H12O6")) != 0 { panic(3192); };
+}
+
+// ---------- 交付 4：相对分子质量 ----------
+
+@test "molar mass exact"() {
+    let (n1, d1) = molar_mass_nd(&sp("H2O"));
+    if n1 != 18 || d1 != 1 { panic(3200); };
+    let (n2, d2) = molar_mass_nd(&sp("CO2"));
+    if n2 != 44 || d2 != 1 { panic(3201); };
+    let (n3, d3) = molar_mass_nd(&sp("C6H12O6"));
+    if n3 != 180 || d3 != 1 { panic(3202); };
+    let (n4, d4) = molar_mass_nd(&sp("CaCO3"));
+    if n4 != 100 || d4 != 1 { panic(3203); };
+    let (n5, d5) = molar_mass_nd(&sp("NaCl"));
+    if n5 != 117 || d5 != 2 { panic(3204); };
+    let (n6, d6) = molar_mass_nd(&sp("Ca(OH)2"));
+    if n6 != 74 || d6 != 1 { panic(3205); };
+}
+
+// ---------- 交付 5：反应类型判定 ----------
+
+@test "reaction types"() {
+    let e1 = eq_new();
+    eq_add_lhs(&e1, "H2", 0, 2, true);
+    eq_add_lhs(&e1, "O2", 0, 1, true);
+    eq_add_rhs(&e1, "H2O", 0, 2, true);
+    if reaction_type(&e1) != 1 { panic(3210); };
+    let e2 = eq_new();
+    eq_add_lhs(&e2, "H2O", 0, 2, true);
+    eq_add_rhs(&e2, "H2", 0, 2, true);
+    eq_add_rhs(&e2, "O2", 0, 1, true);
+    if reaction_type(&e2) != 2 { panic(3211); };
+    let e3 = eq_new();
+    eq_add_lhs(&e3, "Zn", 0, 1, true);
+    eq_add_lhs(&e3, "H2SO4", 0, 1, true);
+    eq_add_rhs(&e3, "ZnSO4", 0, 1, true);
+    eq_add_rhs(&e3, "H2", 0, 1, true);
+    if reaction_type(&e3) != 3 { panic(3212); };
+    let e4 = eq_new();
+    eq_add_lhs(&e4, "HCl", 0, 1, true);
+    eq_add_lhs(&e4, "NaOH", 0, 1, true);
+    eq_add_rhs(&e4, "NaCl", 0, 1, true);
+    eq_add_rhs(&e4, "H2O", 0, 1, true);
+    if reaction_type(&e4) != 4 { panic(3213); };
+    let e5 = eq_new();
+    eq_add_lhs(&e5, "AgNO3", 0, 1, true);
+    eq_add_lhs(&e5, "NaCl", 0, 1, true);
+    eq_add_rhs(&e5, "AgCl", 0, 1, true);
+    eq_add_rhs(&e5, "NaNO3", 0, 1, true);
+    if reaction_type(&e5) != 4 { panic(3214); };
+    let e6 = eq_new();
+    eq_add_lhs(&e6, "CH4", 0, 1, true);
+    eq_add_lhs(&e6, "O2", 0, 2, true);
+    eq_add_rhs(&e6, "CO2", 0, 1, true);
+    eq_add_rhs(&e6, "H2O", 0, 2, true);
+    if reaction_type(&e6) != 0 { panic(3215); };
+}

@@ -1,0 +1,184 @@
+// check/tables.sla —— 元素表：符号 / 相对原子质量 / 化合价候选集
+// 数据源（镜像，人工可读原件在 check/data/）：
+//   原子量  check/data/atomic_weights.txt  provenance: measured:textbook-cn-junior
+//   化合价  check/data/valence_table.txt   provenance: measured:textbook-cn-junior
+// 元素索引为本线内部固定序（0..35），跨线只经 INTERFACE 的 composition 键名交换。
+
+@import "sa_std/string.sai"
+@import "rat.sla"
+
+fn nelem() -> i64 { return 36; }
+
+// 字节读（ASCII 面）：sa_std codepoint 面，公式字符集为 ASCII 故 codepoint == byte
+fn byte_at(s: ptr, n: u64, i: u64) -> i64 {
+    let cp: i32 = 0;
+    let cl: u64 = 0;
+    let rc = sa_str_utf8_char_at_byte(s, n, i, &cp, &cl);
+    if rc != 0 { return -1; };
+    return cp;
+}
+
+fn is_upper(b: i64) -> bool { return b >= 65 && b <= 90; }
+fn is_lower(b: i64) -> bool { return b >= 97 && b <= 122; }
+fn is_digit(b: i64) -> bool { return b >= 48 && b <= 57; }
+
+fn elem_symbol(idx: i64) -> ptr {
+    if idx == 0 { return "H"; };
+    if idx == 1 { return "He"; };
+    if idx == 2 { return "Li"; };
+    if idx == 3 { return "Be"; };
+    if idx == 4 { return "B"; };
+    if idx == 5 { return "C"; };
+    if idx == 6 { return "N"; };
+    if idx == 7 { return "O"; };
+    if idx == 8 { return "F"; };
+    if idx == 9 { return "Ne"; };
+    if idx == 10 { return "Na"; };
+    if idx == 11 { return "Mg"; };
+    if idx == 12 { return "Al"; };
+    if idx == 13 { return "Si"; };
+    if idx == 14 { return "P"; };
+    if idx == 15 { return "S"; };
+    if idx == 16 { return "Cl"; };
+    if idx == 17 { return "Ar"; };
+    if idx == 18 { return "K"; };
+    if idx == 19 { return "Ca"; };
+    if idx == 20 { return "Cr"; };
+    if idx == 21 { return "Mn"; };
+    if idx == 22 { return "Fe"; };
+    if idx == 23 { return "Co"; };
+    if idx == 24 { return "Ni"; };
+    if idx == 25 { return "Cu"; };
+    if idx == 26 { return "Zn"; };
+    if idx == 27 { return "Br"; };
+    if idx == 28 { return "Ag"; };
+    if idx == 29 { return "Sn"; };
+    if idx == 30 { return "I"; };
+    if idx == 31 { return "Ba"; };
+    if idx == 32 { return "Pt"; };
+    if idx == 33 { return "Au"; };
+    if idx == 34 { return "Hg"; };
+    return "Pb";
+}
+
+fn elem_weight_num(idx: i64) -> i64 {
+    if idx == 0 { return 1; };
+    if idx == 1 { return 4; };
+    if idx == 2 { return 7; };
+    if idx == 3 { return 9; };
+    if idx == 4 { return 11; };
+    if idx == 5 { return 12; };
+    if idx == 6 { return 14; };
+    if idx == 7 { return 16; };
+    if idx == 8 { return 19; };
+    if idx == 9 { return 20; };
+    if idx == 10 { return 23; };
+    if idx == 11 { return 24; };
+    if idx == 12 { return 27; };
+    if idx == 13 { return 28; };
+    if idx == 14 { return 31; };
+    if idx == 15 { return 32; };
+    if idx == 16 { return 71; };
+    if idx == 17 { return 40; };
+    if idx == 18 { return 39; };
+    if idx == 19 { return 40; };
+    if idx == 20 { return 52; };
+    if idx == 21 { return 55; };
+    if idx == 22 { return 56; };
+    if idx == 23 { return 59; };
+    if idx == 24 { return 59; };
+    if idx == 25 { return 64; };
+    if idx == 26 { return 65; };
+    if idx == 27 { return 80; };
+    if idx == 28 { return 108; };
+    if idx == 29 { return 119; };
+    if idx == 30 { return 127; };
+    if idx == 31 { return 137; };
+    if idx == 32 { return 195; };
+    if idx == 33 { return 197; };
+    if idx == 34 { return 201; };
+    return 207;
+}
+
+fn elem_weight(idx: i64) -> Rat {
+    if idx == 16 { return rat_make(71, 2); };
+    return rat_int(elem_weight_num(idx));
+}
+
+// 按字节区间 [start, start+sym_len) 查元素索引；未命中返回 -1（响亮失败由调用方处理）
+fn elem_index_of(s: ptr, n: u64, start: i64, sym_len: i64) -> i64 {
+    let idx = 0;
+    while idx < nelem() {
+        let sym = elem_symbol(idx);
+        if len(sym) == sym_len {
+            let same = true;
+            let k = 0;
+            while k < sym_len {
+                if byte_at(s, n, start + k) != byte_at(sym, len(sym), k) { same = false; };
+                k = k + 1;
+            }
+            if same { return idx; };
+        };
+        idx = idx + 1;
+    }
+    return -1;
+}
+
+// 化合价候选打包：code = Σ (v_k + 8) * 16^k，k=0 为数据文件中的首选价态；
+// v ∈ [-4, +7] 故 v+8 ∈ [4, 15]，0 位不可能出现，位数即候选数。code=0 表示无候选（稀有气体）。
+fn valence_code(idx: i64) -> i64 {
+    if idx == 0 { return 9; };
+    if idx == 2 { return 9; };
+    if idx == 3 { return 10; };
+    if idx == 4 { return 11; };
+    if idx == 5 { return 1196; };
+    if idx == 6 { return 765141; };
+    if idx == 7 { return 118; };
+    if idx == 8 { return 7; };
+    if idx == 10 { return 9; };
+    if idx == 11 { return 10; };
+    if idx == 12 { return 11; };
+    if idx == 13 { return 76; };
+    if idx == 14 { return 1469; };
+    if idx == 15 { return 1742; };
+    if idx == 16 { return 638455; };
+    if idx == 18 { return 9; };
+    if idx == 19 { return 10; };
+    if idx == 20 { return 2795; };
+    if idx == 21 { return 60591; };
+    if idx == 22 { return 171; };
+    if idx == 23 { return 186; };
+    if idx == 24 { return 10; };
+    if idx == 25 { return 154; };
+    if idx == 26 { return 10; };
+    if idx == 27 { return 2519; };
+    if idx == 28 { return 9; };
+    if idx == 29 { return 172; };
+    if idx == 30 { return 4055; };
+    if idx == 31 { return 10; };
+    if idx == 32 { return 172; };
+    if idx == 33 { return 155; };
+    if idx == 34 { return 154; };
+    if idx == 35 { return 202; };
+    return 0;
+}
+
+fn valence_count(idx: i64) -> i64 {
+    let c = valence_code(idx);
+    let cnt = 0;
+    while c > 0 {
+        cnt = cnt + 1;
+        c = c / 16;
+    }
+    return cnt;
+}
+
+fn valence_at(idx: i64, k: i64) -> i64 {
+    let c = valence_code(idx);
+    let i = 0;
+    while i < k {
+        c = c / 16;
+        i = i + 1;
+    }
+    return (c % 16) - 8;
+}

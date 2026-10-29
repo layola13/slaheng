@@ -1,0 +1,21 @@
+@import "../formula.sla"
+
+@test "parse counts"() {
+    let a = sp("Ca(OH)2");
+    if !a.ok { panic(101); };
+    if a.comp.counts[19] != 1 { panic(102); };
+    if a.comp.counts[7] != 2 { panic(103); };
+    if a.comp.counts[0] != 2 { panic(104); };
+    let b = sp("Fe2(SO4)3");
+    if !b.ok { panic(105); };
+    if b.comp.counts[22] != 2 { panic(106); };
+    if b.comp.counts[15] != 3 { panic(107); };
+    if b.comp.counts[7] != 12 { panic(108); };
+    let c = sp("C6H12O6");
+    if c.comp.counts[5] != 6 { panic(109); };
+    if c.comp.counts[0] != 12 { panic(110); };
+    if c.comp.counts[7] != 6 { panic(111); };
+    let bad = sp("Xx2");
+    if bad.ok { panic(112); };
+    println("parse ok");
+}

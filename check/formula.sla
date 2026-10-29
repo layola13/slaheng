@@ -1,0 +1,150 @@
+// check/formula.sla —— 物种与化学式解析（formula 级，INTERFACE 的 SpeciesRecord 消费面）
+// composition 以元素索引对齐的计数数组表示：counts[e] = 元素 e 的原子数。
+// 解析失败一律 ok=false 响亮返回，绝不产出半成品 composition 冒充成功。
+// v0.1 语法：元素符号 + 计数 + 圆括号嵌套（如 Ca(OH)2、Fe2(SO4)3）；
+//   不支持：点式水合物（CuSO4·5H2O）、方括号配位式——见 GAPS.md。
+// 访问纪律（本前端实证，见 GAPS.md 的编译器面缺口）：含大定长数组的结构体
+//   ① 禁止按值传参（内容被截断）；② 禁止从函数返回的结构体中按值移出其
+//   大数组字段（头部之后损坏）；一律 & 借用读 / 本地构造后整体移动 / 借用出参填充。
+
+@import "tables.sla"
+
+struct Comp {
+    counts: [i64; 36],
+}
+
+struct Species {
+    comp: Comp,
+    charge: i64,
+    formula: ptr,
+    ok: bool,
+}
+
+fn comp_new() -> Comp {
+    let a: [i64; 36] = [0; 36];
+    return Comp { counts: a };
+}
+
+fn comp_get(c: &Comp, e: i64) -> i64 {
+    return c.counts[e];
+}
+
+// out = acc + other * scale（借用读，返回值构造）
+fn comp_add_scaled(acc: &Comp, other: &Comp, scale: i64) -> Comp {
+    let out = comp_new();
+    let i = 0;
+    while i < 36 {
+        out.counts[i] = acc.counts[i] + other.counts[i] * scale;
+        i = i + 1;
+    }
+    return out;
+}
+
+fn comp_distinct(c: &Comp) -> i64 {
+    let d = 0;
+    let i = 0;
+    while i < 36 {
+        if c.counts[i] > 0 { d = d + 1; };
+        i = i + 1;
+    }
+    return d;
+}
+
+fn comp_eq(a: &Comp, b: &Comp) -> bool {
+    let i = 0;
+    while i < 36 {
+        if a.counts[i] != b.counts[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// 支撑集（出现过的元素集合）是否相同——复分解「交换成分」判定用
+fn comp_support_eq(a: &Comp, b: &Comp) -> bool {
+    let i = 0;
+    while i < 36 {
+        if (a.counts[i] > 0) != (b.counts[i] > 0) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// 解析状态出参（小结构体，无大数组）：pos = 停读位置，ok = 本段解析成功
+struct PState {
+    pos: i64,
+    ok: bool,
+}
+
+fn parse_count(s: ptr, n: u64, total: i64, pos: i64) -> (i64, i64) {
+    let v = 0;
+    let p = pos;
+    let seen = false;
+    while p < total && is_digit(byte_at(s, n, p)) {
+        v = v * 10 + (byte_at(s, n, p) - 48);
+        p = p + 1;
+        seen = true;
+    }
+    if !seen { return (1, pos); };
+    return (v, p);
+}
+
+// 解析一串单元直至 ')' 或串尾，结果累加进 acc（借用出参），停读位置/成败写入 st。
+// 不消费 ')' 本身。
+fn parse_seq(s: ptr, n: u64, total: i64, pos: i64, acc: &Comp, st: &PState) {
+    let p = pos;
+    st.pos = pos;
+    st.ok = true;
+    while p < total {
+        let b = byte_at(s, n, p);
+        if b == 41 {
+            st.pos = p;
+            return;
+        };
+        if b == 40 {
+            let subc = comp_new();
+            let subst = PState { pos: 0, ok: false };
+            parse_seq(s, n, total, p + 1, &subc, &subst);
+            if !subst.ok { st.ok = false; st.pos = p; return; };
+            if subst.pos >= total { st.ok = false; st.pos = p; return; };
+            if byte_at(s, n, subst.pos) != 41 { st.ok = false; st.pos = p; return; };
+            let (cnt, p2) = parse_count(s, n, total, subst.pos + 1);
+            let e = 0;
+            while e < 36 {
+                acc.counts[e] = acc.counts[e] + subc.counts[e] * cnt;
+                e = e + 1;
+            }
+            p = p2;
+        } else {
+            if !is_upper(b) { st.ok = false; st.pos = p; return; };
+            let start = p;
+            p = p + 1;
+            if p < total && is_lower(byte_at(s, n, p)) { p = p + 1; };
+            let idx = elem_index_of(s, n, start, p - start);
+            if idx < 0 { st.ok = false; st.pos = p; return; };
+            let (cnt, p2) = parse_count(s, n, total, p);
+            acc.counts[idx] = acc.counts[idx] + cnt;
+            p = p2;
+        };
+    }
+    st.pos = p;
+}
+
+fn parse_species(formula: ptr, charge: i64) -> Species {
+    let n = len(formula);
+    let total: i64 = len(formula);
+    let comp = comp_new();
+    let st = PState { pos: 0, ok: false };
+    parse_seq(formula, n, total, 0, &comp, &st);
+    let ok = st.ok && st.pos == total && comp_distinct(&comp) > 0;
+    return Species { comp: comp, charge: charge, formula: formula, ok: ok };
+}
+
+// 中性物种简写
+fn sp(formula: ptr) -> Species {
+    return parse_species(formula, 0);
+}
+
+// 带电物种（离子）简写：电荷由 SpeciesRecord 的 charge 字段给出
+fn spq(formula: ptr, charge: i64) -> Species {
+    return parse_species(formula, charge);
+}

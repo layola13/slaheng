@@ -1,0 +1,91 @@
+// check/rat.sla —— i64 精确有理数（小实现）
+// 定位：found/ 的 rational 就绪前的临时替代（见 GAPS.md check 节）。
+// found 线交付后，本文件的 Rat 应切换为 found 的 rational 类型，
+// 本线函数签名尽量与之同形（make/add/sub/mul/div/cmp）。
+// 纪律：分母恒 > 0、恒约分；除零与 0 分母构造响亮 panic，不静默兜底。
+
+struct Rat {
+    n: i64,
+    d: i64,
+}
+
+fn i64_abs(x: i64) -> i64 {
+    if x < 0 { return -x; };
+    return x;
+}
+
+fn i64_gcd(a: i64, b: i64) -> i64 {
+    let x = i64_abs(a);
+    let y = i64_abs(b);
+    while y != 0 {
+        let t = x % y;
+        x = y;
+        y = t;
+    }
+    return x;
+}
+
+fn i64_lcm(a: i64, b: i64) -> i64 {
+    if a == 0 || b == 0 { return 0; };
+    return i64_abs(a / i64_gcd(a, b) * b);
+}
+
+fn rat_make(n: i64, d: i64) -> Rat {
+    if d == 0 { panic(3901); };
+    let nn = n;
+    let dd = d;
+    if dd < 0 { nn = -nn; dd = -dd; };
+    if nn == 0 { return Rat { n: 0, d: 1 }; };
+    let g = i64_gcd(nn, dd);
+    return Rat { n: nn / g, d: dd / g };
+}
+
+fn rat_int(x: i64) -> Rat {
+    return Rat { n: x, d: 1 };
+}
+
+fn rat_add(a: Rat, b: Rat) -> Rat {
+    return rat_make(a.n * b.d + b.n * a.d, a.d * b.d);
+}
+
+fn rat_sub(a: Rat, b: Rat) -> Rat {
+    return rat_make(a.n * b.d - b.n * a.d, a.d * b.d);
+}
+
+fn rat_mul(a: Rat, b: Rat) -> Rat {
+    return rat_make(a.n * b.n, a.d * b.d);
+}
+
+fn rat_div(a: Rat, b: Rat) -> Rat {
+    if b.n == 0 { panic(3902); };
+    return rat_make(a.n * b.d, a.d * b.n);
+}
+
+fn rat_neg(a: Rat) -> Rat {
+    return Rat { n: -a.n, d: a.d };
+}
+
+fn rat_is_zero(a: Rat) -> bool {
+    return a.n == 0;
+}
+
+// 返回 -1/0/1
+fn rat_cmp(a: Rat, b: Rat) -> i64 {
+    let lhs = a.n * b.d;
+    let rhs = b.n * a.d;
+    if lhs < rhs { return -1; };
+    if lhs > rhs { return 1; };
+    return 0;
+}
+
+fn rat_eq(a: Rat, b: Rat) -> bool {
+    return a.n == b.n && a.d == b.d;
+}
+
+fn rat_print(a: Rat) {
+    if a.d == 1 {
+        println("{}", a.n);
+    } else {
+        println("{}/{}", a.n, a.d);
+    };
+}

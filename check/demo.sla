@@ -1,0 +1,60 @@
+// check/demo.sla —— C1 检验层演示：把各检查的诊断报告打到标准输出
+// （sla test 会吞测试内 println，故可读证据经本程序给出）。
+// 构建：sla build-exe demo.sla —— 见 README.md 的环境口径。
+
+@import "c1.sla"
+
+fn main() {
+    println("== 1. 漏 H 的方程式：2H2O -> H2 + O2（应报逐元素差量） ==");
+    let e1 = eq_new();
+    eq_add_lhs(&e1, "H2O", 0, 2, true);
+    eq_add_rhs(&e1, "H2", 0, 1, true);
+    eq_add_rhs(&e1, "O2", 0, 1, true);
+    let r1 = check_balance(&e1);
+    println("返回码: {}", r1);
+
+    println("== 2. 电荷不守恒：2Na+ + SO4(-1 误标) -> Na2SO4 ==");
+    let e2 = eq_new();
+    eq_add_lhs(&e2, "Na", 1, 2, true);
+    eq_add_lhs(&e2, "SO4", -1, 1, true);
+    eq_add_rhs(&e2, "Na2SO4", 0, 1, true);
+    let r2 = check_balance(&e2);
+    println("返回码: {}", r2);
+
+    println("== 3. 配平求解：CO2 + H2O -> C6H12O6 + O2（光合作用） ==");
+    let e3 = eq_new();
+    eq_add_lhs(&e3, "CO2", 0, 0, false);
+    eq_add_lhs(&e3, "H2O", 0, 0, false);
+    eq_add_rhs(&e3, "C6H12O6", 0, 0, false);
+    eq_add_rhs(&e3, "O2", 0, 0, false);
+    let r3 = solve_balance(&e3);
+    println("求解状态: {}", r3.status);
+
+    println("== 4. 多解响亮报错：H2 + O2 -> H2O + H2O2 ==");
+    let e4 = eq_new();
+    eq_add_lhs(&e4, "H2", 0, 0, false);
+    eq_add_lhs(&e4, "O2", 0, 0, false);
+    eq_add_rhs(&e4, "H2O", 0, 0, false);
+    eq_add_rhs(&e4, "H2O2", 0, 0, false);
+    let r4 = solve_balance(&e4);
+    println("求解状态: {}", r4.status);
+
+    println("== 5. 化合价：H2SO4 应通过，FeCl 应响亮失败 ==");
+    let v1 = check_valence(&sp("H2SO4"));
+    println("H2SO4 返回码: {}", v1);
+    let v2 = check_valence(&sp("FeCl"));
+    println("FeCl 返回码: {}", v2);
+
+    println("== 6. 相对分子质量：NaCl / C6H12O6 ==");
+    print_molar_mass(&sp("NaCl"));
+    print_molar_mass(&sp("C6H12O6"));
+
+    println("== 7. 反应类型：HCl + NaOH -> NaCl + H2O ==");
+    let e7 = eq_new();
+    eq_add_lhs(&e7, "HCl", 0, 1, true);
+    eq_add_lhs(&e7, "NaOH", 0, 1, true);
+    eq_add_rhs(&e7, "NaCl", 0, 1, true);
+    eq_add_rhs(&e7, "H2O", 0, 1, true);
+    let r7 = reaction_type(&e7);
+    println("类型码: {}", r7);
+}

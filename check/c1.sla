@@ -1,0 +1,719 @@
+// check/c1.sla —— C1 检验层（L0 教育面）：配平检查 / 配平求解 / 化合价 /
+//   相对分子质量 / 反应类型判定。
+// 输入契约（INTERFACE.md）：EquationRecord{lhs/rhs: [[species, coeff]...]} 与
+//   SpeciesRecord{formula, composition, charge}；本模块以 formula 级解析消费
+//   SpeciesRecord（parse_species(formula, charge)），composition 契约与
+//   species/ 的 canon 产出在集成期对接，判定逻辑只依赖 composition 本身。
+// 数值纪律：一切判定走精确有理数（(num, den) 对，den>0 恒约分）；
+//   求解器为有理数 Gauss–Jordan 全主元约化，无浮点、无近似、无静默兜底——
+//   无解 / 多维解空间 / 异号解 / 零系数一律响亮报错并以状态码区分。
+// 访问纪律见 formula.sla 头注（借用读 / 本地构造 / 借用出参）。
+
+@import "sa_std/io/print.sai"
+@import "sa_std/fmt.sai"
+@import "formula.sla"
+
+// ---- 报告打印层 ----
+// 前端缺口（见 GAPS.md）：println 的 {} 对 ptr 变量参数打印为空（字面量直传与
+// 数字参数正常）。凡报告行含字符串变量（元素符号 / 化学式 / 类型名），一律用
+// 本层片段拼接：p_str 打字符串、p_i64 打整数（不换行）、p_nl 换行。
+
+fn p_str(s: ptr) {
+    sa_print_bytes(s, len(s));
+}
+
+fn p_i64(v: i64) {
+    let h = sa_fmt_i64(v, 10);
+    let p = sa_fmt_buffer_data(h);
+    let l = sa_fmt_buffer_len(h);
+    sa_print_bytes(p, l);
+    let rc = sa_fmt_buffer_free(h);
+}
+
+fn p_nl() {
+    sa_print_bytes("\n", 1);
+}
+
+fn c1_gcd(a: i64, b: i64) -> i64 {
+    let x = a;
+    let y = b;
+    if x < 0 { x = -x; };
+    if y < 0 { y = -y; };
+    while y != 0 {
+        let t = x % y;
+        x = y;
+        y = t;
+    }
+    return x;
+}
+
+fn c1_lcm(a: i64, b: i64) -> i64 {
+    if a == 0 || b == 0 { return 0; };
+    let v = a / c1_gcd(a, b) * b;
+    if v < 0 { return -v; };
+    return v;
+}
+
+// ---- 有理数对 (n, d) 基本运算（d>0、恒约分；出错响亮 panic） ----
+
+fn fr_norm(n: i64, d: i64) -> (i64, i64) {
+    if d == 0 { panic(3901); };
+    let nn = n;
+    let dd = d;
+    if dd < 0 { nn = -nn; dd = -dd; };
+    if nn == 0 { return (0, 1); };
+    let g = c1_gcd(nn, dd);
+    return (nn / g, dd / g);
+}
+
+fn fr_add4(an: i64, ad: i64, bn: i64, bd: i64) -> (i64, i64) {
+    return fr_norm(an * bd + bn * ad, ad * bd);
+}
+
+fn fr_sub4(an: i64, ad: i64, bn: i64, bd: i64) -> (i64, i64) {
+    return fr_norm(an * bd - bn * ad, ad * bd);
+}
+
+fn fr_mul4(an: i64, ad: i64, bn: i64, bd: i64) -> (i64, i64) {
+    return fr_norm(an * bn, ad * bd);
+}
+
+fn fr_div4(an: i64, ad: i64, bn: i64, bd: i64) -> (i64, i64) {
+    if bn == 0 { panic(3902); };
+    return fr_norm(an * bd, ad * bn);
+}
+
+// ---- 方程式结构（EquationRecord 的本地形） ----
+
+struct Term {
+    sp: Species,
+    coeff: i64,
+    has_coeff: bool,
+}
+
+struct Equation {
+    lhs: [Term; 8],
+    rhs: [Term; 8],
+    nl: i64,
+    nr: i64,
+}
+
+fn term_empty() -> Term {
+    return Term { sp: Species { comp: comp_new(), charge: 0, formula: "", ok: false }, coeff: 0, has_coeff: false };
+}
+
+fn eq_new() -> Equation {
+    return Equation {
+        lhs: [term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty()],
+        rhs: [term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty(), term_empty()],
+        nl: 0, nr: 0,
+    };
+}
+
+fn eq_add_lhs(eq: &Equation, formula: ptr, charge: i64, coeff: i64, has_coeff: bool) {
+    if eq.nl >= 8 { panic(3101); };
+    let s = parse_species(formula, charge);
+    eq.lhs[eq.nl] = Term { sp: s, coeff: coeff, has_coeff: has_coeff };
+    eq.nl = eq.nl + 1;
+}
+
+fn eq_add_rhs(eq: &Equation, formula: ptr, charge: i64, coeff: i64, has_coeff: bool) {
+    if eq.nr >= 8 { panic(3102); };
+    let s = parse_species(formula, charge);
+    eq.rhs[eq.nr] = Term { sp: s, coeff: coeff, has_coeff: has_coeff };
+    eq.nr = eq.nr + 1;
+}
+
+// side: 0 = 左侧（反应物），1 = 右侧（生成物）
+fn term_count(eq: &Equation, side: i64, ti: i64, e: i64) -> i64 {
+    if side == 0 { return eq.lhs[ti].sp.comp.counts[e]; };
+    return eq.rhs[ti].sp.comp.counts[e];
+}
+
+fn term_charge(eq: &Equation, side: i64, ti: i64) -> i64 {
+    if side == 0 { return eq.lhs[ti].sp.charge; };
+    return eq.rhs[ti].sp.charge;
+}
+
+fn term_ok(eq: &Equation, side: i64, ti: i64) -> bool {
+    if side == 0 { return eq.lhs[ti].sp.ok; };
+    return eq.rhs[ti].sp.ok;
+}
+
+fn term_formula(eq: &Equation, side: i64, ti: i64) -> ptr {
+    if side == 0 { return eq.lhs[ti].sp.formula; };
+    return eq.rhs[ti].sp.formula;
+}
+
+fn term_coeff(eq: &Equation, side: i64, ti: i64) -> i64 {
+    if side == 0 { return eq.lhs[ti].coeff; };
+    return eq.rhs[ti].coeff;
+}
+
+fn term_has_coeff(eq: &Equation, side: i64, ti: i64) -> bool {
+    if side == 0 { return eq.lhs[ti].has_coeff; };
+    return eq.rhs[ti].has_coeff;
+}
+
+fn term_distinct(eq: &Equation, side: i64, ti: i64) -> i64 {
+    let d = 0;
+    let e = 0;
+    while e < 36 {
+        if term_count(eq, side, ti, e) > 0 { d = d + 1; };
+        e = e + 1;
+    }
+    return d;
+}
+
+// 两项的支撑集（出现元素集合）是否相同
+fn term_support_eq(eq: &Equation, sa: i64, ta: i64, sb: i64, tb: i64) -> bool {
+    let e = 0;
+    while e < 36 {
+        if (term_count(eq, sa, ta, e) > 0) != (term_count(eq, sb, tb, e) > 0) { return false; };
+        e = e + 1;
+    }
+    return true;
+}
+
+// 结构校验：任一物种解析失败 → 打印 error[C1-parse] 并返回 false
+fn eq_species_ok(eq: &Equation) -> bool {
+    let i = 0;
+    while i < eq.nl {
+        if !term_ok(eq, 0, i) {
+            p_str("error[C1-parse]: 左侧物种 ");
+            p_str(term_formula(eq, 0, i));
+            p_str(" 解析失败");
+            p_nl();
+            return false;
+        };
+        i = i + 1;
+    }
+    let j = 0;
+    while j < eq.nr {
+        if !term_ok(eq, 1, j) {
+            p_str("error[C1-parse]: 右侧物种 ");
+            p_str(term_formula(eq, 1, j));
+            p_str(" 解析失败");
+            p_nl();
+            return false;
+        };
+        j = j + 1;
+    }
+    return true;
+}
+
+// ---- 交付 1：配平检查 ----
+// 返回码：0 守恒；1 仅元素不守恒；2 仅电荷不守恒；3 两者皆不守恒；-1 结构错误
+// （解析失败或缺系数）。元素不守恒时合并为一份报告：表头一行 + 逐元素差量行。
+fn check_balance(eq: &Equation) -> i64 {
+    if !eq_species_ok(eq) { return -1; };
+    let i = 0;
+    while i < eq.nl {
+        if !term_has_coeff(eq, 0, i) {
+            p_str("error[C1-coeff]: 左侧物种 ");
+            p_str(term_formula(eq, 0, i));
+            p_str(" 缺系数，配平检查需要已配平方程式");
+            p_nl();
+            return -1;
+        };
+        i = i + 1;
+    }
+    let j = 0;
+    while j < eq.nr {
+        if !term_has_coeff(eq, 1, j) {
+            p_str("error[C1-coeff]: 右侧物种 ");
+            p_str(term_formula(eq, 1, j));
+            p_str(" 缺系数，配平检查需要已配平方程式");
+            p_nl();
+            return -1;
+        };
+        j = j + 1;
+    }
+    let lt: [i64; 36] = [0; 36];
+    let rt: [i64; 36] = [0; 36];
+    let a = 0;
+    while a < eq.nl {
+        let e = 0;
+        while e < 36 {
+            lt[e] = lt[e] + term_coeff(eq, 0, a) * term_count(eq, 0, a, e);
+            e = e + 1;
+        }
+        a = a + 1;
+    }
+    let b = 0;
+    while b < eq.nr {
+        let e = 0;
+        while e < 36 {
+            rt[e] = rt[e] + term_coeff(eq, 1, b) * term_count(eq, 1, b, e);
+            e = e + 1;
+        }
+        b = b + 1;
+    }
+    let lc = 0;
+    let x = 0;
+    while x < eq.nl {
+        lc = lc + term_coeff(eq, 0, x) * term_charge(eq, 0, x);
+        x = x + 1;
+    }
+    let rc = 0;
+    let y = 0;
+    while y < eq.nr {
+        rc = rc + term_coeff(eq, 1, y) * term_charge(eq, 1, y);
+        y = y + 1;
+    }
+    let elem_bad = false;
+    let e = 0;
+    while e < 36 {
+        if lt[e] != rt[e] { elem_bad = true; };
+        e = e + 1;
+    }
+    let charge_bad = lc != rc;
+    if elem_bad {
+        println("error[C1-element]: 两侧元素不守恒，逐元素差量:");
+        let e2 = 0;
+        while e2 < 36 {
+            if lt[e2] != rt[e2] {
+                p_str(" ");
+                p_str(elem_symbol(e2));
+                p_str(": 左 ");
+                p_i64(lt[e2]);
+                p_str(" 右 ");
+                p_i64(rt[e2]);
+                p_nl();
+            };
+            e2 = e2 + 1;
+        }
+    };
+    if charge_bad {
+        println("error[C1-charge]: 两侧电荷不守恒: 左 {} 右 {}", lc, rc);
+    };
+    if !elem_bad && !charge_bad {
+        println("ok[C1]: 元素与电荷均守恒");
+        return 0;
+    };
+    let mask = 0;
+    if elem_bad { mask = mask + 1; };
+    if charge_bad { mask = mask + 2; };
+    return mask;
+}
+
+// ---- 交付 2：配平求解（L0 习题形态，精确有理数） ----
+// status: 0 = OK（coeffs[0..n) 为最小正整数解，按 lhs 后 rhs 的物种序）；
+//   1 = 无解（解空间维数 0，只有零解）；2 = 多解（解空间维数 ≥2，nullity 字段）；
+//   3 = 异号解（唯一解含异号系数，物种不能同时置于当前两侧）；
+//   4 = 零系数（唯一解中 bad_index 处物种系数为 0，未真正参与）；
+//   5 = 结构错误（解析失败 / 两侧为空 / 物种总数越界）。
+struct SolveRes {
+    status: i64,
+    coeffs: [i64; 12],
+    n: i64,
+    nullity: i64,
+    bad_index: i64,
+}
+
+fn solve_res(status: i64, n: i64, nullity: i64, bad: i64) -> SolveRes {
+    let c: [i64; 12] = [0; 12];
+    return SolveRes { status: status, coeffs: c, n: n, nullity: nullity, bad_index: bad };
+}
+
+// 第 j 个物种（j<nl 为左侧第 j 项，否则右侧第 j-nl 项）对元素 e 的带号计数
+fn solve_signed_count(eq: &Equation, j: i64, e: i64) -> i64 {
+    if j < eq.nl { return term_count(eq, 0, j, e); };
+    return -term_count(eq, 1, j - eq.nl, e);
+}
+
+fn solve_balance(eq: &Equation) -> SolveRes {
+    let n = eq.nl + eq.nr;
+    if eq.nl < 1 || eq.nr < 1 || n > 12 {
+        println("error[C1-solve]: 方程式结构非法（左 {} 项 / 右 {} 项）", eq.nl, eq.nr);
+        return solve_res(5, n, 0, -1);
+    };
+    if !eq_species_ok(eq) { return solve_res(5, n, 0, -1); };
+    // 约束矩阵 A[36][12]（元素 × 物种），以 (num, den) 对存于 an/ad，行主序 stride 12
+    let an: [i64; 432] = [0; 432];
+    let ad: [i64; 432] = [1; 432];
+    let e = 0;
+    while e < 36 {
+        let j = 0;
+        while j < n {
+            an[e * 12 + j] = solve_signed_count(eq, j, e);
+            ad[e * 12 + j] = 1;
+            j = j + 1;
+        }
+        e = e + 1;
+    }
+    // Gauss–Jordan 约化为 RREF（精确有理数）
+    let pivot_col: [i64; 36] = [-1; 36];
+    let is_pivot: [i64; 12] = [0; 12];
+    let prow = 0;
+    let col = 0;
+    while col < n {
+        // 找主元行
+        let sel = -1;
+        let r = prow;
+        while r < 36 {
+            if sel < 0 && an[r * 12 + col] != 0 { sel = r; };
+            r = r + 1;
+        }
+        if sel >= 0 {
+            if sel != prow {
+                let c = 0;
+                while c < n {
+                    let tn = an[prow * 12 + c];
+                    an[prow * 12 + c] = an[sel * 12 + c];
+                    an[sel * 12 + c] = tn;
+                    let td = ad[prow * 12 + c];
+                    ad[prow * 12 + c] = ad[sel * 12 + c];
+                    ad[sel * 12 + c] = td;
+                    c = c + 1;
+                }
+            };
+            // 主元行归一
+            let pn = an[prow * 12 + col];
+            let pd = ad[prow * 12 + col];
+            let c = 0;
+            while c < n {
+                let (vn, vd) = fr_div4(an[prow * 12 + c], ad[prow * 12 + c], pn, pd);
+                an[prow * 12 + c] = vn;
+                ad[prow * 12 + c] = vd;
+                c = c + 1;
+            }
+            // 消去其余行的该列
+            let rr = 0;
+            while rr < 36 {
+                if rr != prow && an[rr * 12 + col] != 0 {
+                    let fn2 = an[rr * 12 + col];
+                    let fd2 = ad[rr * 12 + col];
+                    let c = 0;
+                    while c < n {
+                        let (mn, md) = fr_mul4(fn2, fd2, an[prow * 12 + c], ad[prow * 12 + c]);
+                        let (sn, sd) = fr_sub4(an[rr * 12 + c], ad[rr * 12 + c], mn, md);
+                        an[rr * 12 + c] = sn;
+                        ad[rr * 12 + c] = sd;
+                        c = c + 1;
+                    }
+                };
+                rr = rr + 1;
+            }
+            pivot_col[prow] = col;
+            is_pivot[col] = 1;
+            prow = prow + 1;
+        };
+        col = col + 1;
+    }
+    let nullity = n - prow;
+    if nullity == 0 {
+        println("error[C1-solve]: 无非零解（解空间维数 0），该方程式不可配平");
+        return solve_res(1, n, 0, -1);
+    };
+    if nullity >= 2 {
+        println("error[C1-solve]: 解空间维数 {} 大于 1，配平不唯一（独立约束不足，请检查是否混入了两个反应）", nullity);
+        return solve_res(2, n, nullity, -1);
+    };
+    // 恰一维解空间：取自由列 f，x[f] = 1，主元列 x[c] = -A[pivot行][f]
+    let f = 0;
+    let j = 0;
+    while j < n {
+        if is_pivot[j] == 0 { f = j; };
+        j = j + 1;
+    }
+    let xn: [i64; 12] = [0; 12];
+    let xd: [i64; 12] = [1; 12];
+    xn[f] = 1;
+    xd[f] = 1;
+    let r = 0;
+    while r < prow {
+        let c = pivot_col[r];
+        let (vn, vd) = fr_norm(-an[r * 12 + f], ad[r * 12 + f]);
+        xn[c] = vn;
+        xd[c] = vd;
+        r = r + 1;
+    }
+    // 零系数检查
+    let j2 = 0;
+    while j2 < n {
+        if xn[j2] == 0 {
+            println("error[C1-solve]: 物种序号 {} 在唯一解中系数为 0（未真正参与反应）", j2);
+            return solve_res(4, n, 1, j2);
+        };
+        j2 = j2 + 1;
+    }
+    // 定向：全正保留、全负取反、异号响亮报错
+    let has_pos = false;
+    let has_neg = false;
+    let j3 = 0;
+    while j3 < n {
+        if xn[j3] > 0 { has_pos = true; };
+        if xn[j3] < 0 { has_neg = true; };
+        j3 = j3 + 1;
+    }
+    if has_pos && has_neg {
+        println("error[C1-solve]: 唯一解含异号系数，物种不能同时置于方程式当前两侧");
+        return solve_res(3, n, 1, -1);
+    };
+    if has_neg {
+        let j4 = 0;
+        while j4 < n {
+            xn[j4] = -xn[j4];
+            j4 = j4 + 1;
+        }
+    };
+    // 通分取整并约去最大公因数 → 最小正整数解
+    let l = 1;
+    let j5 = 0;
+    while j5 < n {
+        l = c1_lcm(l, xd[j5]);
+        j5 = j5 + 1;
+    }
+    let xi: [i64; 12] = [0; 12];
+    let j6 = 0;
+    while j6 < n {
+        xi[j6] = xn[j6] * (l / xd[j6]);
+        j6 = j6 + 1;
+    }
+    let g = 0;
+    let j7 = 0;
+    while j7 < n {
+        g = c1_gcd(g, xi[j7]);
+        j7 = j7 + 1;
+    }
+    if g > 1 {
+        let j8 = 0;
+        while j8 < n {
+            xi[j8] = xi[j8] / g;
+            j8 = j8 + 1;
+        }
+    };
+    // 整数回代自检：A·x == 0 必须逐元素成立，否则为求解器内伤，响亮 panic
+    let e2 = 0;
+    while e2 < 36 {
+        let sum = 0;
+        let j9 = 0;
+        while j9 < n {
+            sum = sum + solve_signed_count(eq, j9, e2) * xi[j9];
+            j9 = j9 + 1;
+        }
+        if sum != 0 { panic(3910); };
+        e2 = e2 + 1;
+    }
+    let res = solve_res(0, n, 1, -1);
+    let j10 = 0;
+    while j10 < n {
+        res.coeffs[j10] = xi[j10];
+        j10 = j10 + 1;
+    }
+    println("ok[C1-solve]: 最小正整数系数（按左侧后右侧物种序）:");
+    let j11 = 0;
+    while j11 < n {
+        p_str(" ");
+        if j11 < eq.nl {
+            p_str(term_formula(eq, 0, j11));
+        } else {
+            p_str(term_formula(eq, 1, j11 - eq.nl));
+        };
+        p_str(": ");
+        p_i64(xi[j11]);
+        p_nl();
+        j11 = j11 + 1;
+    }
+    return res;
+}
+
+// ---- 交付 3：化合价检查 ----
+// 模型 v0.1：每元素在物种内取单一价态（价态候选集见 data/valence_table.txt），
+//   合法 ⟺ 存在候选分配使 Σ 计数×价态 == 物种电荷（中性物种即 0，离子即其电荷）。
+// 返回：1 合法；0 无分配（不合法）；-1 不适用（解析失败 / 元素无表条目）。
+//   有机式与混合价态（如 Fe3O4）在本模型外——无分配时响亮说明，不冒充判定。
+
+// 第 t 个（0 基）出现元素的索引；越界返回 -1
+// 注：收 &Comp 直借——经 &Species 嵌套读数组于循环内会触发 SAB PhiStateConflict
+// （前端缺口，见 GAPS.md），故本组辅助函数一律以 &Comp 为参数。
+fn v_elem_at(c: &Comp, t: i64) -> i64 {
+    let seen = 0;
+    let e = 0;
+    while e < 36 {
+        if c.counts[e] > 0 {
+            if seen == t { return e; };
+            seen = seen + 1;
+        };
+        e = e + 1;
+    }
+    return -1;
+}
+
+// 第 t..k-1 个元素可贡献的价态和范围 [lo, hi]（回溯剪枝用）
+fn v_suffix_range(c: &Comp, t: i64, k: i64) -> (i64, i64) {
+    let lo = 0;
+    let hi = 0;
+    let u = t;
+    while u < k {
+        let e = v_elem_at(c, u);
+        let cnt = c.counts[e];
+        let nc = valence_count(e);
+        let vmin = valence_at(e, 0);
+        let vmax = vmin;
+        let j = 1;
+        while j < nc {
+            let v = valence_at(e, j);
+            if v < vmin { vmin = v; };
+            if v > vmax { vmax = v; };
+            j = j + 1;
+        }
+        lo = lo + cnt * vmin;
+        hi = hi + cnt * vmax;
+        u = u + 1;
+    }
+    return (lo, hi);
+}
+
+fn v_search(c: &Comp, charge: i64, t: i64, k: i64, acc: i64) -> bool {
+    if t == k { return acc == charge; };
+    let e = v_elem_at(c, t);
+    let cnt = c.counts[e];
+    let (lo, hi) = v_suffix_range(c, t + 1, k);
+    let nc = valence_count(e);
+    let j = 0;
+    while j < nc {
+        let nv = acc + cnt * valence_at(e, j);
+        if nv + lo <= charge && charge <= nv + hi {
+            if v_search(c, charge, t + 1, k, nv) { return true; };
+        };
+        j = j + 1;
+    }
+    return false;
+}
+
+fn check_valence(s: &Species) -> i64 {
+    if !s.ok {
+        p_str("error[C1-parse]: 物种 ");
+        p_str(s.formula);
+        p_str(" 解析失败");
+        p_nl();
+        return -1;
+    };
+    let c = &s.comp;
+    let k = comp_distinct(c);
+    if k == 1 && s.charge == 0 {
+        p_str("ok[C1-valence]: ");
+        p_str(s.formula);
+        p_str(" 为单质，化合价 0");
+        p_nl();
+        return 1;
+    };
+    let t = 0;
+    while t < k {
+        let e = v_elem_at(c, t);
+        if valence_count(e) == 0 {
+            p_str("error[C1-valence]: 元素 ");
+            p_str(elem_symbol(e));
+            p_str(" 在初中化合价表中无条目，本模型不适用");
+            p_nl();
+            return -1;
+        };
+        t = t + 1;
+    }
+    if v_search(c, s.charge, 0, k, 0) {
+        p_str("ok[C1-valence]: ");
+        p_str(s.formula);
+        p_str(" 存在化合价分配使总和等于电荷 ");
+        p_i64(s.charge);
+        p_nl();
+        return 1;
+    };
+    p_str("error[C1-valence]: ");
+    p_str(s.formula);
+    p_str(" 无化合价分配使 Σ计数×价态 等于电荷 ");
+    p_i64(s.charge);
+    p_nl();
+    println("note[C1-valence]: 有机式与混合价态物种（如 Fe3O4）不在 v0.1 单价态模型内，上行结论对其不构成判定");
+    return 0;
+}
+
+// ---- 交付 4：相对分子质量 ----
+// 返回精确有理数对 (num, den)：Σ 计数 × 相对原子质量（数据 data/atomic_weights.txt）。
+
+fn molar_mass_nd(s: &Species) -> (i64, i64) {
+    if !s.ok { panic(3105); };
+    let c = &s.comp;
+    let tn = 0;
+    let td = 1;
+    let e = 0;
+    while e < 36 {
+        let cnt = c.counts[e];
+        if cnt > 0 {
+            let w = elem_weight(e);
+            let (pn, pd) = fr_mul4(cnt, 1, w.n, w.d);
+            let (sn, sd) = fr_add4(tn, td, pn, pd);
+            tn = sn;
+            td = sd;
+        };
+        e = e + 1;
+    }
+    return (tn, td);
+}
+
+fn print_molar_mass(s: &Species) {
+    let (n, d) = molar_mass_nd(s);
+    p_str("Mr(");
+    p_str(s.formula);
+    p_str(") = ");
+    if d == 1 {
+        p_i64(n);
+    } else {
+        p_i64(n);
+        p_str("/");
+        p_i64(d);
+    };
+    p_nl();
+    // 教科书口径一位小数（整数运算，半入）
+    let t = (20 * n + d) / (2 * d);
+    p_str("Mr(");
+    p_str(s.formula);
+    p_str(") 约为 ");
+    p_i64(t / 10);
+    p_str(".");
+    p_i64(t % 10);
+    p_nl();
+}
+
+// ---- 交付 5：反应类型判定（info 级） ----
+// 返回：1 化合；2 分解；3 置换；4 复分解；0 其他（不属四类基本反应）；-1 结构错误。
+// 规则按方程式形状：多→一为化合，一→多为分解；2→2 且两侧各恰一种单质为置换；
+//   2→2 全为化合物且右首项支撑集与左侧两项皆不同（确有成分交换）为复分解。
+
+fn reaction_type_name(code: i64) -> ptr {
+    if code == 1 { return "化合反应"; };
+    if code == 2 { return "分解反应"; };
+    if code == 3 { return "置换反应"; };
+    if code == 4 { return "复分解反应"; };
+    if code == 0 { return "其他（不属四类基本反应类型）"; };
+    return "结构错误";
+}
+
+fn reaction_type(eq: &Equation) -> i64 {
+    if !eq_species_ok(eq) { return -1; };
+    let code = 0;
+    if eq.nr == 1 && eq.nl >= 2 {
+        code = 1;
+    } else if eq.nl == 1 && eq.nr >= 2 {
+        code = 2;
+    } else if eq.nl == 2 && eq.nr == 2 {
+        let l_elem = 0;
+        let r_elem = 0;
+        if term_distinct(eq, 0, 0) == 1 { l_elem = l_elem + 1; };
+        if term_distinct(eq, 0, 1) == 1 { l_elem = l_elem + 1; };
+        if term_distinct(eq, 1, 0) == 1 { r_elem = r_elem + 1; };
+        if term_distinct(eq, 1, 1) == 1 { r_elem = r_elem + 1; };
+        if l_elem == 1 && r_elem == 1 {
+            code = 3;
+        } else if l_elem == 0 && r_elem == 0 {
+            if !term_support_eq(eq, 1, 0, 0, 0) && !term_support_eq(eq, 1, 0, 0, 1) {
+                code = 4;
+            };
+        };
+    };
+    p_str("info[C1-type]: ");
+    p_str(reaction_type_name(code));
+    p_nl();
+    return code;
+}
