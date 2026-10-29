@@ -1,0 +1,1744 @@
+[
+ {
+  "id": "eq-jr-001",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:S@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:SO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "硫的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-002",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:P@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     5
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:P2O5@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "红磷的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-003",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳的完全燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-004",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳的不完全燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-005",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     3
+    ],
+    [
+     "formula1:O2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe3O4@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铁在氧气中燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-006",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Mg@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:MgO@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "镁的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-007",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Al@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Al2O3@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "铝的氧化",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-008",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CuO@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜的氧化",
+   "conditions": "加热",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-009",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳还原二氧化碳",
+   "conditions": "高温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-010",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2CO3@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "二氧化碳与水反应",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-011",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CaO@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Ca(OH)2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "生石灰与水反应",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-012",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢气的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "燃料与能源"
+ },
+ {
+  "id": "eq-jr-013",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2SO3@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "二氧化硫与水反应（酸雨成因之一）",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": "存疑：式子本身配平无误；初中课本对酸雨成因多为文字叙述，是否列此式各版本不一"
+  },
+  "provenance": "assumed",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "eq-jr-014",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "水的电解",
+   "conditions": "通电",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "自然界的水"
+ },
+ {
+  "id": "eq-jr-015",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:KMnO4@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:K2MnO4@0",
+     1
+    ],
+    [
+     "formula1:MnO2@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "高锰酸钾制氧气",
+   "conditions": "加热",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-016",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:KClO3@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:KCl@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "氯酸钾制氧气",
+   "conditions": "加热，二氧化锰作催化剂",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-017",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2O2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "过氧化氢制氧气",
+   "conditions": "二氧化锰作催化剂",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "eq-jr-018",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CaCO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaO@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "石灰石分解",
+   "conditions": "高温",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-019",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2CO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸分解",
+   "conditions": "常温",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-020",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CuSO4·5H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CuSO4@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     5
+    ]
+   ],
+   "arrow": "->",
+   "name": "胆矾受热分解",
+   "conditions": "加热",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "eq-jr-021",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NH4HCO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NH3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸氢铵受热分解",
+   "conditions": "受热",
+   "reaction_type": "分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "eq-jr-022",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     1
+    ],
+    [
+     "formula1:CuSO4@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeSO4@0",
+     1
+    ],
+    [
+     "formula1:Cu@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "湿法炼铜（铁与硫酸铜）",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-023",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Zn@0",
+     1
+    ],
+    [
+     "formula1:H2SO4@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:ZnSO4@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "锌与稀硫酸（实验室制氢气常用）",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-024",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeCl2@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铁与稀盐酸",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-025",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Mg@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:MgCl2@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "镁与稀盐酸",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-026",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Zn@0",
+     1
+    ],
+    [
+     "formula1:CuSO4@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:ZnSO4@0",
+     1
+    ],
+    [
+     "formula1:Cu@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "锌与硫酸铜",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-027",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@0",
+     1
+    ],
+    [
+     "formula1:AgNO3@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu(NO3)2@0",
+     1
+    ],
+    [
+     "formula1:Ag@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜与硝酸银",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-028",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Al@0",
+     2
+    ],
+    [
+     "formula1:CuSO4@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Al2(SO4)3@0",
+     1
+    ],
+    [
+     "formula1:Cu@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "铝与硫酸铜",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-029",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     1
+    ],
+    [
+     "formula1:CuO@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu@0",
+     2
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "木炭还原氧化铜",
+   "conditions": "高温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-030",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2@0",
+     1
+    ],
+    [
+     "formula1:CuO@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢气还原氧化铜",
+   "conditions": "加热",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-031",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     1
+    ],
+    [
+     "formula1:H2SO4@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeSO4@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铁与稀硫酸",
+   "conditions": "常温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-032",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:HCl@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NaCl@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "盐酸与氢氧化钠（中和反应）",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-033",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:HCl@0",
+     2
+    ],
+    [
+     "formula1:CaCO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCl2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "实验室制二氧化碳（大理石与稀盐酸）",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-034",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2SO4@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Na2SO4@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "硫酸与氢氧化钠",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-035",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2SO4@0",
+     1
+    ],
+    [
+     "formula1:BaCl2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:BaSO4@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "检验硫酸根离子",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": "生成白色沉淀 BaSO4"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-036",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:HCl@0",
+     1
+    ],
+    [
+     "formula1:AgNO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:AgCl@0",
+     1
+    ],
+    [
+     "formula1:HNO3@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "检验氯离子",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": "生成白色沉淀 AgCl"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-037",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Na2CO3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NaCl@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸钠与盐酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "eq-jr-038",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Na2CO3@0",
+     1
+    ],
+    [
+     "formula1:Ca(OH)2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCO3@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "苛化法制烧碱",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "eq-jr-039",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:Ca(OH)2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCO3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "检验二氧化碳（澄清石灰水变浑浊）",
+   "conditions": "常温",
+   "reaction_type": "其他",
+   "note": "不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-040",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Na2CO3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化钠吸收二氧化碳",
+   "conditions": "常温",
+   "reaction_type": "其他",
+   "note": "不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-041",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CuSO4@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu(OH)2@0",
+     1
+    ],
+    [
+     "formula1:Na2SO4@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "硫酸铜与氢氧化钠",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": "生成蓝色沉淀 Cu(OH)2"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-042",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NaHCO3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NaCl@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸氢钠与盐酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "eq-jr-043",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NH3·H2O@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NH4Cl@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氨水与盐酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-044",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CH4@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "甲烷的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "其他",
+   "note": "有机物燃烧，不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "燃料与能源"
+ },
+ {
+  "id": "eq-jr-045",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C2H5OH@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙醇的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "其他",
+   "note": "有机物燃烧，不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "eq-jr-046",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO2@0",
+     6
+    ],
+    [
+     "formula1:H2O@0",
+     6
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C6H12O6@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     6
+    ]
+   ],
+   "arrow": "->",
+   "name": "光合作用",
+   "conditions": "光照、叶绿体",
+   "reaction_type": "其他",
+   "note": "绿色植物的光合作用总反应式"
+  },
+  "provenance": "measured:初中生物课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "eq-jr-047",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C6H12O6@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     6
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     6
+    ],
+    [
+     "formula1:H2O@0",
+     6
+    ]
+   ],
+   "arrow": "->",
+   "name": "呼吸作用",
+   "conditions": "活细胞（酶催化）",
+   "reaction_type": "其他",
+   "note": "细胞呼吸作用总反应式"
+  },
+  "provenance": "measured:初中生物课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "eq-jr-048",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO@0",
+     3
+    ],
+    [
+     "formula1:Fe2O3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe@0",
+     2
+    ],
+    [
+     "formula1:CO2@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "一氧化碳还原氧化铁（高炉炼铁）",
+   "conditions": "高温",
+   "reaction_type": "其他",
+   "note": "还原反应，不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-049",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO@0",
+     1
+    ],
+    [
+     "formula1:CuO@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "一氧化碳还原氧化铜",
+   "conditions": "加热",
+   "reaction_type": "其他",
+   "note": "还原反应，不属于四大基本反应类型"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "eq-jr-050",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CuO@0",
+     1
+    ],
+    [
+     "formula1:H2SO4@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CuSO4@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氧化铜与稀硫酸",
+   "conditions": "常温（可微热）",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-051",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe2O3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     6
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeCl3@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "除铁锈（氧化铁与盐酸）",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "eq-jr-052",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     3
+    ],
+    [
+     "formula1:Fe2O3@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe@0",
+     4
+    ],
+    [
+     "formula1:CO2@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "木炭还原氧化铁",
+   "conditions": "高温",
+   "reaction_type": "其他",
+   "note": "还原反应"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "eq-jr-053",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:K2CO3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:KCl@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸钾与盐酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ }
+]

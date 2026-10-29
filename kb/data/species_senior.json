@@ -1,0 +1,1815 @@
+[
+ {
+  "id": "formula1:Si@0",
+  "kind": "species",
+  "payload": {
+   "name": "硅",
+   "formula": "Si",
+   "composition": {
+    "Si": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Si": [
+     0
+    ]
+   },
+   "state_note": "灰黑色固体",
+   "note": "半导体材料"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:P4@0",
+  "kind": "species",
+  "payload": {
+   "name": "白磷",
+   "formula": "P4",
+   "composition": {
+    "P": 4
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "P": [
+     0
+    ]
+   },
+   "state_note": "白色蜡状固体，有毒",
+   "note": "白磷的实际分子式；着火点低，易自燃"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "元素化合物"
+ },
+ {
+  "id": "formula1:Br2@0",
+  "kind": "species",
+  "payload": {
+   "name": "溴",
+   "formula": "Br2",
+   "composition": {
+    "Br": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Br": [
+     0
+    ]
+   },
+   "state_note": "深红棕色液体",
+   "note": "常温下唯一的液态非金属单质"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:I2@0",
+  "kind": "species",
+  "payload": {
+   "name": "碘",
+   "formula": "I2",
+   "composition": {
+    "I": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "I": [
+     0
+    ]
+   },
+   "state_note": "紫黑色固体",
+   "note": "易升华；遇淀粉变蓝色"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:Na2O2@0",
+  "kind": "species",
+  "payload": {
+   "name": "过氧化钠",
+   "formula": "Na2O2",
+   "composition": {
+    "Na": 2,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "过氧化物",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "O": [
+     -1
+    ]
+   },
+   "state_note": "淡黄色固体",
+   "note": "与水、二氧化碳反应放出氧气"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "钠及其化合物"
+ },
+ {
+  "id": "formula1:FeS2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二硫化亚铁",
+   "formula": "FeS2",
+   "composition": {
+    "Fe": 1,
+    "S": 2
+   },
+   "charge": 0,
+   "category": "硫化物",
+   "valences": {
+    "Fe": [
+     2
+    ],
+    "S": [
+     -1
+    ]
+   },
+   "state_note": "黄色固体",
+   "note": "即黄铁矿；工业上用于制硫酸"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "formula1:SiO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二氧化硅",
+   "formula": "SiO2",
+   "composition": {
+    "Si": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Si": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "固体，难溶于水",
+   "note": "水晶、石英的主要成分；能与氢氟酸反应"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:HF@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氟酸",
+   "formula": "HF",
+   "composition": {
+    "H": 1,
+    "F": 1
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "F": [
+     -1
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "弱酸；能腐蚀玻璃"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:SiF4@0",
+  "kind": "species",
+  "payload": {
+   "name": "四氟化硅",
+   "formula": "SiF4",
+   "composition": {
+    "Si": 1,
+    "F": 4
+   },
+   "charge": 0,
+   "category": "氟化物",
+   "valences": {
+    "Si": [
+     4
+    ],
+    "F": [
+     -1
+    ]
+   },
+   "state_note": "无色气体",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:Na2SiO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硅酸钠",
+   "formula": "Na2SiO3",
+   "composition": {
+    "Na": 2,
+    "Si": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "Si": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "其水溶液俗称水玻璃"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:H2SiO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硅酸",
+   "formula": "H2SiO3",
+   "composition": {
+    "H": 2,
+    "Si": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "Si": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色胶状固体，难溶于水",
+   "note": "弱酸，酸性比碳酸弱"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "formula1:NO@0",
+  "kind": "species",
+  "payload": {
+   "name": "一氧化氮",
+   "formula": "NO",
+   "composition": {
+    "N": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "N": [
+     2
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色气体",
+   "note": "在空气中迅速被氧化为二氧化氮"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:NO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二氧化氮",
+   "formula": "NO2",
+   "composition": {
+    "N": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "N": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "红棕色有刺激性气味气体",
+   "note": "与水反应生成硝酸"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:N2O4@0",
+  "kind": "species",
+  "payload": {
+   "name": "四氧化二氮",
+   "formula": "N2O4",
+   "composition": {
+    "N": 2,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "N": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色气体",
+   "note": "与二氧化氮之间存在转化平衡"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:SO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "三氧化硫",
+   "formula": "SO3",
+   "composition": {
+    "S": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "常温下为液体（易凝固）",
+   "note": "与水反应生成硫酸"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "formula1:HClO@0",
+  "kind": "species",
+  "payload": {
+   "name": "次氯酸",
+   "formula": "HClO",
+   "composition": {
+    "H": 1,
+    "Cl": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "Cl": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "只存在于溶液中",
+   "note": "弱酸；有强氧化性、漂白性"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:NaClO@0",
+  "kind": "species",
+  "payload": {
+   "name": "次氯酸钠",
+   "formula": "NaClO",
+   "composition": {
+    "Na": 1,
+    "Cl": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "Cl": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "固体，易溶于水",
+   "note": "漂白液、消毒液的有效成分"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:Ca(ClO)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "次氯酸钙",
+   "formula": "Ca(ClO)2",
+   "composition": {
+    "Ca": 1,
+    "Cl": 2,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "Cl": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "漂白粉的有效成分"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:MnCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化锰",
+   "formula": "MnCl2",
+   "composition": {
+    "Mn": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Mn": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "粉红色固体",
+   "note": "实验室用二氧化锰与浓盐酸制氯气的产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "formula1:Fe(OH)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化亚铁",
+   "formula": "Fe(OH)2",
+   "composition": {
+    "Fe": 1,
+    "O": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Fe": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，难溶于水",
+   "note": "在空气中迅速被氧化：白色→灰绿色→红褐色"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铁及其化合物"
+ },
+ {
+  "id": "formula1:Al(OH)3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化铝",
+   "formula": "Al(OH)3",
+   "composition": {
+    "Al": 1,
+    "O": 3,
+    "H": 3
+   },
+   "charge": 0,
+   "category": "碱（两性氢氧化物）",
+   "valences": {
+    "Al": [
+     3
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，难溶于水",
+   "note": "两性：既与强酸反应又与强碱反应"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铝及其化合物"
+ },
+ {
+  "id": "formula1:AlCl3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化铝",
+   "formula": "AlCl3",
+   "composition": {
+    "Al": 1,
+    "Cl": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Al": [
+     3
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铝及其化合物"
+ },
+ {
+  "id": "formula1:H2S@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫化氢",
+   "formula": "H2S",
+   "composition": {
+    "H": 2,
+    "S": 1
+   },
+   "charge": 0,
+   "category": "酸（氢化物）",
+   "valences": {
+    "H": [
+     1
+    ],
+    "S": [
+     -2
+    ]
+   },
+   "state_note": "无色有臭鸡蛋气味气体，有毒",
+   "note": "水溶液称氢硫酸（弱酸）；有强还原性"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "formula1:CaC2@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳化钙",
+   "formula": "CaC2",
+   "composition": {
+    "Ca": 1,
+    "C": 2
+   },
+   "charge": 0,
+   "category": "碳化物",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "C": [
+     -1
+    ]
+   },
+   "state_note": "灰色固体",
+   "note": "俗称电石；与水反应制乙炔"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C2H2@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙炔",
+   "formula": "C2H2",
+   "composition": {
+    "C": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ]
+   },
+   "state_note": "无色气体",
+   "note": "最简单的炔烃；氧炔焰可用于焊接"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C2H4@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙烯",
+   "formula": "C2H4",
+   "composition": {
+    "C": 2,
+    "H": 4
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ]
+   },
+   "state_note": "无色气体",
+   "note": "最简单的烯烃；一种植物生长调节剂"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C2H4Br2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二溴乙烷",
+   "formula": "C2H4Br2",
+   "composition": {
+    "C": 2,
+    "H": 4,
+    "Br": 2
+   },
+   "charge": 0,
+   "category": "有机物（卤代烃）",
+   "valences": {
+    "Br": [
+     -1
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "乙烯与溴加成的产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C6H6@0",
+  "kind": "species",
+  "payload": {
+   "name": "苯",
+   "formula": "C6H6",
+   "composition": {
+    "C": 6,
+    "H": 6
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ]
+   },
+   "state_note": "无色液体，有特殊气味",
+   "note": "芳香烃的代表物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:CH3OH@0",
+  "kind": "species",
+  "payload": {
+   "name": "甲醇",
+   "formula": "CH3OH",
+   "composition": {
+    "C": 1,
+    "H": 4,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "有毒；最简单的醇"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:CH3CHO@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙醛",
+   "formula": "CH3CHO",
+   "composition": {
+    "C": 2,
+    "H": 4,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色有刺激性气味液体",
+   "note": "可发生银镜反应"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:HCOOH@0",
+  "kind": "species",
+  "payload": {
+   "name": "甲酸",
+   "formula": "HCOOH",
+   "composition": {
+    "C": 1,
+    "H": 2,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "有机物（酸）",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "最简单的羧酸"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:CH3COOC2H5@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙酸乙酯",
+   "formula": "CH3COOC2H5",
+   "composition": {
+    "C": 4,
+    "H": 8,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "有机物（酯）",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色有果香气味液体",
+   "note": "酯化反应的典型产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C12H22O11@0",
+  "kind": "species",
+  "payload": {
+   "name": "蔗糖",
+   "formula": "C12H22O11",
+   "composition": {
+    "C": 12,
+    "H": 22,
+    "O": 11
+   },
+   "charge": 0,
+   "category": "有机物（糖类）",
+   "valences": {},
+   "state_note": "白色固体，易溶于水",
+   "note": "二糖；水解生成葡萄糖和果糖"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C2H5ONa@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙醇钠",
+   "formula": "C2H5ONa",
+   "composition": {
+    "C": 2,
+    "H": 5,
+    "O": 1,
+    "Na": 1
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "乙醇与钠反应的产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:CH3Cl@0",
+  "kind": "species",
+  "payload": {
+   "name": "一氯甲烷",
+   "formula": "CH3Cl",
+   "composition": {
+    "C": 1,
+    "H": 3,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "有机物（卤代烃）",
+   "valences": {
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "无色气体",
+   "note": "甲烷取代反应的产物之一"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C6H5Br@0",
+  "kind": "species",
+  "payload": {
+   "name": "溴苯",
+   "formula": "C6H5Br",
+   "composition": {
+    "C": 6,
+    "H": 5,
+    "Br": 1
+   },
+   "charge": 0,
+   "category": "有机物（卤代烃）",
+   "valences": {
+    "Br": [
+     -1
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "苯取代反应的产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:C6H5NO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝基苯",
+   "formula": "C6H5NO2",
+   "composition": {
+    "C": 6,
+    "H": 5,
+    "N": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "淡黄色液体，有苦杏仁气味",
+   "note": "苯硝化反应的产物"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "formula1:NH4NO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸铵",
+   "formula": "NH4NO3",
+   "composition": {
+    "N": 2,
+    "H": 4,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "N": [
+     -3,
+     5
+    ],
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "氮肥；同一盐中氮呈 -3 与 +5 两种价态"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:(NH4)2SO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸铵",
+   "formula": "(NH4)2SO4",
+   "composition": {
+    "N": 2,
+    "H": 8,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "常用氮肥，俗称硫铵"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:KNO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸钾",
+   "formula": "KNO3",
+   "composition": {
+    "K": 1,
+    "N": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "N": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "复合肥料；黑火药的成分之一"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "formula1:Ba(OH)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化钡",
+   "formula": "Ba(OH)2",
+   "composition": {
+    "Ba": 1,
+    "O": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Ba": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "强碱"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "元素化合物"
+ },
+ {
+  "id": "formula1:Mg(OH)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化镁",
+   "formula": "Mg(OH)2",
+   "composition": {
+    "Mg": 1,
+    "O": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Mg": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，难溶于水",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "元素化合物"
+ },
+ {
+  "id": "formula1:Cu2(OH)2CO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碱式碳酸铜",
+   "formula": "Cu2(OH)2CO3",
+   "composition": {
+    "Cu": 2,
+    "O": 5,
+    "H": 2,
+    "C": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ],
+    "C": [
+     4
+    ]
+   },
+   "state_note": "绿色固体",
+   "note": "俗称铜绿，是铜锈的主要成分"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铜及其化合物"
+ },
+ {
+  "id": "formula1:H@1",
+  "kind": "species",
+  "payload": {
+   "name": "氢离子",
+   "formula": "H",
+   "composition": {
+    "H": 1
+   },
+   "charge": 1,
+   "category": "离子",
+   "valences": {
+    "H": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:OH@-1",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧根离子",
+   "formula": "OH",
+   "composition": {
+    "O": 1,
+    "H": 1
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Na@1",
+  "kind": "species",
+  "payload": {
+   "name": "钠离子",
+   "formula": "Na",
+   "composition": {
+    "Na": 1
+   },
+   "charge": 1,
+   "category": "离子",
+   "valences": {
+    "Na": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:K@1",
+  "kind": "species",
+  "payload": {
+   "name": "钾离子",
+   "formula": "K",
+   "composition": {
+    "K": 1
+   },
+   "charge": 1,
+   "category": "离子",
+   "valences": {
+    "K": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:NH4@1",
+  "kind": "species",
+  "payload": {
+   "name": "铵根离子",
+   "formula": "NH4",
+   "composition": {
+    "N": 1,
+    "H": 4
+   },
+   "charge": 1,
+   "category": "离子",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Ca@2",
+  "kind": "species",
+  "payload": {
+   "name": "钙离子",
+   "formula": "Ca",
+   "composition": {
+    "Ca": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Ca": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Mg@2",
+  "kind": "species",
+  "payload": {
+   "name": "镁离子",
+   "formula": "Mg",
+   "composition": {
+    "Mg": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Mg": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Ba@2",
+  "kind": "species",
+  "payload": {
+   "name": "钡离子",
+   "formula": "Ba",
+   "composition": {
+    "Ba": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Ba": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Cu@2",
+  "kind": "species",
+  "payload": {
+   "name": "铜离子",
+   "formula": "Cu",
+   "composition": {
+    "Cu": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Cu": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Zn@2",
+  "kind": "species",
+  "payload": {
+   "name": "锌离子",
+   "formula": "Zn",
+   "composition": {
+    "Zn": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Zn": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Fe@2",
+  "kind": "species",
+  "payload": {
+   "name": "亚铁离子",
+   "formula": "Fe",
+   "composition": {
+    "Fe": 1
+   },
+   "charge": 2,
+   "category": "离子",
+   "valences": {
+    "Fe": [
+     2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Fe@3",
+  "kind": "species",
+  "payload": {
+   "name": "铁离子",
+   "formula": "Fe",
+   "composition": {
+    "Fe": 1
+   },
+   "charge": 3,
+   "category": "离子",
+   "valences": {
+    "Fe": [
+     3
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Al@3",
+  "kind": "species",
+  "payload": {
+   "name": "铝离子",
+   "formula": "Al",
+   "composition": {
+    "Al": 1
+   },
+   "charge": 3,
+   "category": "离子",
+   "valences": {
+    "Al": [
+     3
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Ag@1",
+  "kind": "species",
+  "payload": {
+   "name": "银离子",
+   "formula": "Ag",
+   "composition": {
+    "Ag": 1
+   },
+   "charge": 1,
+   "category": "离子",
+   "valences": {
+    "Ag": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Cl@-1",
+  "kind": "species",
+  "payload": {
+   "name": "氯离子",
+   "formula": "Cl",
+   "composition": {
+    "Cl": 1
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:S@-2",
+  "kind": "species",
+  "payload": {
+   "name": "硫离子",
+   "formula": "S",
+   "composition": {
+    "S": 1
+   },
+   "charge": -2,
+   "category": "离子",
+   "valences": {
+    "S": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:SO4@-2",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸根离子",
+   "formula": "SO4",
+   "composition": {
+    "S": 1,
+    "O": 4
+   },
+   "charge": -2,
+   "category": "离子",
+   "valences": {
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:CO3@-2",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸根离子",
+   "formula": "CO3",
+   "composition": {
+    "C": 1,
+    "O": 3
+   },
+   "charge": -2,
+   "category": "离子",
+   "valences": {
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:HCO3@-1",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸氢根离子",
+   "formula": "HCO3",
+   "composition": {
+    "H": 1,
+    "C": 1,
+    "O": 3
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "H": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:NO3@-1",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸根离子",
+   "formula": "NO3",
+   "composition": {
+    "N": 1,
+    "O": 3
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "N": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:PO4@-3",
+  "kind": "species",
+  "payload": {
+   "name": "磷酸根离子",
+   "formula": "PO4",
+   "composition": {
+    "P": 1,
+    "O": 4
+   },
+   "charge": -3,
+   "category": "离子",
+   "valences": {
+    "P": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Al(OH)4@-1",
+  "kind": "species",
+  "payload": {
+   "name": "四羟基合铝酸根离子",
+   "formula": "Al(OH)4",
+   "composition": {
+    "Al": 1,
+    "O": 4,
+    "H": 4
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "Al": [
+     3
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:MnO4@-1",
+  "kind": "species",
+  "payload": {
+   "name": "高锰酸根离子",
+   "formula": "MnO4",
+   "composition": {
+    "Mn": 1,
+    "O": 4
+   },
+   "charge": -1,
+   "category": "离子",
+   "valences": {
+    "Mn": [
+     7
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "存在于水溶液中",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "formula1:Na@0",
+  "kind": "species",
+  "payload": {
+   "name": "钠",
+   "formula": "Na",
+   "composition": {
+    "Na": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Na": [
+     0
+    ]
+   },
+   "state_note": "银白色固体，质软",
+   "note": "化学性质活泼；与水剧烈反应；保存在煤油中"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "钠及其化合物"
+ },
+ {
+  "id": "formula1:HBr@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢溴酸（溴化氢）",
+   "formula": "HBr",
+   "composition": {
+    "H": 1,
+    "Br": 1
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "Br": [
+     -1
+    ]
+   },
+   "state_note": "溴化氢为无色气体；氢溴酸为其水溶液",
+   "note": "苯与溴取代反应的副产物以 HBr 计"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ }
+]

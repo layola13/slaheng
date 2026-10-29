@@ -1,0 +1,392 @@
+[
+ {
+  "id": "mass:H",
+  "kind": "fact",
+  "payload": {
+   "symbol": "H",
+   "name": "氢",
+   "mass_textbook": 1,
+   "mass_precise": 1.008
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:He",
+  "kind": "fact",
+  "payload": {
+   "symbol": "He",
+   "name": "氦",
+   "mass_textbook": 4,
+   "mass_precise": 4.003
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Li",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Li",
+   "name": "锂",
+   "mass_textbook": 7,
+   "mass_precise": 6.94
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Be",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Be",
+   "name": "铍",
+   "mass_textbook": 9,
+   "mass_precise": 9.012
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:B",
+  "kind": "fact",
+  "payload": {
+   "symbol": "B",
+   "name": "硼",
+   "mass_textbook": 11,
+   "mass_precise": 10.81
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:C",
+  "kind": "fact",
+  "payload": {
+   "symbol": "C",
+   "name": "碳",
+   "mass_textbook": 12,
+   "mass_precise": 12.011
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:N",
+  "kind": "fact",
+  "payload": {
+   "symbol": "N",
+   "name": "氮",
+   "mass_textbook": 14,
+   "mass_precise": 14.007
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:O",
+  "kind": "fact",
+  "payload": {
+   "symbol": "O",
+   "name": "氧",
+   "mass_textbook": 16,
+   "mass_precise": 15.999
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:F",
+  "kind": "fact",
+  "payload": {
+   "symbol": "F",
+   "name": "氟",
+   "mass_textbook": 19,
+   "mass_precise": 18.998
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Ne",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Ne",
+   "name": "氖",
+   "mass_textbook": 20,
+   "mass_precise": 20.18
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Na",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Na",
+   "name": "钠",
+   "mass_textbook": 23,
+   "mass_precise": 22.99
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Mg",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Mg",
+   "name": "镁",
+   "mass_textbook": 24,
+   "mass_precise": 24.305
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Al",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Al",
+   "name": "铝",
+   "mass_textbook": 27,
+   "mass_precise": 26.982
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Si",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Si",
+   "name": "硅",
+   "mass_textbook": 28,
+   "mass_precise": 28.085
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:P",
+  "kind": "fact",
+  "payload": {
+   "symbol": "P",
+   "name": "磷",
+   "mass_textbook": 31,
+   "mass_precise": 30.974
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:S",
+  "kind": "fact",
+  "payload": {
+   "symbol": "S",
+   "name": "硫",
+   "mass_textbook": 32,
+   "mass_precise": 32.06
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Cl",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Cl",
+   "name": "氯",
+   "mass_textbook": 35.5,
+   "mass_precise": 35.45
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Ar",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Ar",
+   "name": "氩",
+   "mass_textbook": 40,
+   "mass_precise": 39.948
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:K",
+  "kind": "fact",
+  "payload": {
+   "symbol": "K",
+   "name": "钾",
+   "mass_textbook": 39,
+   "mass_precise": 39.098
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Ca",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Ca",
+   "name": "钙",
+   "mass_textbook": 40,
+   "mass_precise": 40.078
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Mn",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Mn",
+   "name": "锰",
+   "mass_textbook": 55,
+   "mass_precise": 54.938
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Fe",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Fe",
+   "name": "铁",
+   "mass_textbook": 56,
+   "mass_precise": 55.845
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Cu",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Cu",
+   "name": "铜",
+   "mass_textbook": 64,
+   "mass_precise": 63.546
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Zn",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Zn",
+   "name": "锌",
+   "mass_textbook": 65,
+   "mass_precise": 65.38
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Br",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Br",
+   "name": "溴",
+   "mass_textbook": 80,
+   "mass_precise": 79.904
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Ag",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Ag",
+   "name": "银",
+   "mass_textbook": 108,
+   "mass_precise": 107.868
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:I",
+  "kind": "fact",
+  "payload": {
+   "symbol": "I",
+   "name": "碘",
+   "mass_textbook": 127,
+   "mass_precise": 126.904
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Ba",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Ba",
+   "name": "钡",
+   "mass_textbook": 137,
+   "mass_precise": 137.327
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Hg",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Hg",
+   "name": "汞",
+   "mass_textbook": 201,
+   "mass_precise": 200.592
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ },
+ {
+  "id": "mass:Pb",
+  "kind": "fact",
+  "payload": {
+   "symbol": "Pb",
+   "name": "铅",
+   "mass_textbook": 207,
+   "mass_precise": 207.2
+  },
+  "provenance": "measured:人教版课本元素周期表（取整）/IUPAC 标准原子量（精确值）",
+  "curriculum": "初中",
+  "topic": "相对原子质量"
+ }
+]

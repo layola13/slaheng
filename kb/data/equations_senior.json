@@ -1,0 +1,1854 @@
+[
+ {
+  "id": "eq-sr-001",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:FeS2@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     11
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe2O3@0",
+     2
+    ],
+    [
+     "formula1:SO2@0",
+     8
+    ]
+   ],
+   "arrow": "->",
+   "name": "黄铁矿焙烧（接触法制硫酸第一步）",
+   "conditions": "高温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-002",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SO2@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:SO3@0",
+     2
+    ]
+   ],
+   "arrow": "<=>",
+   "name": "二氧化硫的催化氧化",
+   "conditions": "高温、催化剂",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-003",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SO3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2SO4@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "三氧化硫与水",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-004",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:N2@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NH3@0",
+     2
+    ]
+   ],
+   "arrow": "<=>",
+   "name": "合成氨",
+   "conditions": "高温、高压、催化剂",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-005",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NH3@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     5
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NO@0",
+     4
+    ],
+    [
+     "formula1:H2O@0",
+     6
+    ]
+   ],
+   "arrow": "->",
+   "name": "氨的催化氧化",
+   "conditions": "高温、催化剂",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-006",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NO@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NO2@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "一氧化氮被氧化",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-007",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NO2@0",
+     3
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:HNO3@0",
+     2
+    ],
+    [
+     "formula1:NO@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "二氧化氮与水（硝酸工业吸收）",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-008",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NO2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:N2O4@0",
+     1
+    ]
+   ],
+   "arrow": "<=>",
+   "name": "二氧化氮与四氧化二氮的转化",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-009",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NH3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NH4Cl@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氨与氯化氢（白烟）",
+   "conditions": "常温",
+   "reaction_type": "化合反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-010",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cl2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:HCl@0",
+     1
+    ],
+    [
+     "formula1:HClO@0",
+     1
+    ]
+   ],
+   "arrow": "<=>",
+   "name": "氯气与水",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "eq-sr-011",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cl2@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NaCl@0",
+     1
+    ],
+    [
+     "formula1:NaClO@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氯气与氢氧化钠（漂白液）",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "eq-sr-012",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cl2@0",
+     2
+    ],
+    [
+     "formula1:Ca(OH)2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCl2@0",
+     1
+    ],
+    [
+     "formula1:Ca(ClO)2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "制漂白粉",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "eq-sr-013",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:MnO2@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:MnCl2@0",
+     1
+    ],
+    [
+     "formula1:Cl2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "实验室制氯气",
+   "conditions": "加热（浓盐酸）",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "eq-sr-014",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Na2O2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NaOH@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "过氧化钠与水",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "钠及其化合物"
+ },
+ {
+  "id": "eq-sr-015",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Na2O2@0",
+     2
+    ],
+    [
+     "formula1:CO2@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Na2CO3@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "过氧化钠与二氧化碳",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "钠及其化合物"
+ },
+ {
+  "id": "eq-sr-016",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CaC2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C2H2@0",
+     1
+    ],
+    [
+     "formula1:Ca(OH)2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "电石制乙炔",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-017",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SiO2@0",
+     1
+    ],
+    [
+     "formula1:HF@0",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:SiF4@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "二氧化硅与氢氟酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "eq-sr-018",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SiO2@0",
+     1
+    ],
+    [
+     "formula1:Na2CO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Na2SiO3@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "高温下制硅酸钠",
+   "conditions": "高温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "eq-sr-019",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:SiO2@0",
+     1
+    ],
+    [
+     "formula1:NaOH@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Na2SiO3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "二氧化硅与氢氧化钠",
+   "conditions": "常温（溶液）",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "eq-sr-020",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Na2SiO3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2SiO3@0",
+     1
+    ],
+    [
+     "formula1:NaCl@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "制硅酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": "生成胶状沉淀 H2SiO3"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硅与无机非金属材料"
+ },
+ {
+  "id": "eq-sr-021",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     3
+    ],
+    [
+     "formula1:H2O@0",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe3O4@0",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     4
+    ]
+   ],
+   "arrow": "->",
+   "name": "铁与水蒸气",
+   "conditions": "高温",
+   "reaction_type": "置换反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铁及其化合物"
+ },
+ {
+  "id": "eq-sr-022",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:FeCl3@0",
+     2
+    ],
+    [
+     "formula1:Fe@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeCl2@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "氯化铁与铁（归中）",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铁及其化合物"
+ },
+ {
+  "id": "eq-sr-023",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:FeCl2@0",
+     2
+    ],
+    [
+     "formula1:Cl2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:FeCl3@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "氯化亚铁被氯气氧化",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铁及其化合物"
+ },
+ {
+  "id": "eq-sr-024",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@0",
+     1
+    ],
+    [
+     "formula1:H2SO4@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CuSO4@0",
+     1
+    ],
+    [
+     "formula1:SO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜与浓硫酸",
+   "conditions": "加热",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-025",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C@0",
+     1
+    ],
+    [
+     "formula1:H2SO4@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:SO2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳与浓硫酸",
+   "conditions": "加热",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-026",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@0",
+     3
+    ],
+    [
+     "formula1:HNO3@0",
+     8
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu(NO3)2@0",
+     3
+    ],
+    [
+     "formula1:NO@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     4
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜与稀硝酸",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-027",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@0",
+     1
+    ],
+    [
+     "formula1:HNO3@0",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu(NO3)2@0",
+     1
+    ],
+    [
+     "formula1:NO2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜与浓硝酸",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氮及其化合物"
+ },
+ {
+  "id": "eq-sr-028",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe(OH)2@0",
+     4
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe(OH)3@0",
+     4
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化亚铁被氧化",
+   "conditions": "常温",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铁及其化合物"
+ },
+ {
+  "id": "eq-sr-029",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Ca(ClO)2@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCO3@0",
+     1
+    ],
+    [
+     "formula1:HClO@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "漂白粉失效原理",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "氯及其化合物"
+ },
+ {
+  "id": "eq-sr-030",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H2S@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:SO2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "硫化氢完全燃烧",
+   "conditions": "点燃",
+   "reaction_type": "氧化还原反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "硫及其化合物"
+ },
+ {
+  "id": "eq-sr-031",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:H@1",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "酸碱中和的离子方程式",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": "H+ 与 OH- 的净离子反应"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-032",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CO3@-2",
+     1
+    ],
+    [
+     "formula1:H@1",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸根与酸",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-033",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Ca@2",
+     1
+    ],
+    [
+     "formula1:CO3@-2",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CaCO3@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸钙沉淀生成",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-034",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Ag@1",
+     1
+    ],
+    [
+     "formula1:Cl@-1",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:AgCl@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氯化银沉淀生成",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-035",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Ba@2",
+     1
+    ],
+    [
+     "formula1:SO4@-2",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:BaSO4@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "硫酸钡沉淀生成",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-036",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@0",
+     1
+    ],
+    [
+     "formula1:H@1",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe@2",
+     1
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铁与酸（离子方程式）",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-037",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu@2",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Cu(OH)2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化铜沉淀生成",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-038",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Fe@3",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Fe(OH)3@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化铁沉淀生成",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-039",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:NH4@1",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:NH3@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铵根与碱",
+   "conditions": "加热",
+   "reaction_type": "离子反应",
+   "note": "铵根离子的检验"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-040",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:HCO3@-1",
+     1
+    ],
+    [
+     "formula1:H@1",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:H2O@0",
+     1
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "碳酸氢根与酸",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-041",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Al@3",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Al(OH)4@-1",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铝离子与过量强碱",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-042",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Al(OH)3@0",
+     1
+    ],
+    [
+     "formula1:OH@-1",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Al(OH)4@-1",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化铝溶于强碱（两性）",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-043",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Al(OH)3@0",
+     1
+    ],
+    [
+     "formula1:H@1",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Al@3",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     3
+    ]
+   ],
+   "arrow": "->",
+   "name": "氢氧化铝溶于强酸（两性）",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-044",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Zn@0",
+     1
+    ],
+    [
+     "formula1:Cu@2",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:Zn@2",
+     1
+    ],
+    [
+     "formula1:Cu@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "锌置换铜（离子方程式）",
+   "conditions": "常温",
+   "reaction_type": "离子反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "离子反应"
+ },
+ {
+  "id": "eq-sr-045",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CH3COOH@0",
+     1
+    ],
+    [
+     "formula1:C2H5OH@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CH3COOC2H5@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "<=>",
+   "name": "酯化反应",
+   "conditions": "浓硫酸、加热",
+   "reaction_type": "其他",
+   "note": "乙酸与乙醇的酯化"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-046",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C2H4@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C2H5OH@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙烯水化制乙醇",
+   "conditions": "催化剂、加热加压",
+   "reaction_type": "其他",
+   "note": "加成反应"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-047",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C2H4@0",
+     1
+    ],
+    [
+     "formula1:O2@0",
+     3
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CO2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙烯的燃烧",
+   "conditions": "点燃",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-048",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C2H4@0",
+     1
+    ],
+    [
+     "formula1:Br2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C2H4Br2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙烯与溴加成",
+   "conditions": "常温",
+   "reaction_type": "其他",
+   "note": "可使溴水/溴的四氯化碳溶液褪色"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-049",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C2H5OH@0",
+     2
+    ],
+    [
+     "formula1:Na@0",
+     2
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C2H5ONa@0",
+     2
+    ],
+    [
+     "formula1:H2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙醇与钠",
+   "conditions": "常温",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-050",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CH4@0",
+     1
+    ],
+    [
+     "formula1:Cl2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CH3Cl@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "甲烷与氯气取代",
+   "conditions": "光照",
+   "reaction_type": "其他",
+   "note": "生成一氯甲烷的一步取代"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-051",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C6H12O6@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C2H5OH@0",
+     2
+    ],
+    [
+     "formula1:CO2@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "葡萄糖发酵制乙醇",
+   "conditions": "酒化酶",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-052",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C12H22O11@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C6H12O6@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "蔗糖水解",
+   "conditions": "稀硫酸、加热",
+   "reaction_type": "其他",
+   "note": "产物为葡萄糖与果糖，二者互为同分异构体、分子式相同，故右端以 2×C6H12O6 表示"
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-053",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:CH3CHO@0",
+     2
+    ],
+    [
+     "formula1:O2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CH3COOH@0",
+     2
+    ]
+   ],
+   "arrow": "->",
+   "name": "乙醛催化氧化",
+   "conditions": "催化剂、加热",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-054",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C6H6@0",
+     1
+    ],
+    [
+     "formula1:Br2@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C6H5Br@0",
+     1
+    ],
+    [
+     "formula1:HBr@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "苯与溴取代",
+   "conditions": "铁/溴化铁催化",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-055",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:C6H6@0",
+     1
+    ],
+    [
+     "formula1:HNO3@0",
+     1
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:C6H5NO2@0",
+     1
+    ],
+    [
+     "formula1:H2O@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "苯的硝化",
+   "conditions": "浓硫酸、加热",
+   "reaction_type": "其他",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "有机化学基础"
+ },
+ {
+  "id": "eq-sr-056",
+  "kind": "equation",
+  "payload": {
+   "lhs": [
+    [
+     "formula1:Cu2(OH)2CO3@0",
+     1
+    ],
+    [
+     "formula1:HCl@0",
+     4
+    ]
+   ],
+   "rhs": [
+    [
+     "formula1:CuCl2@0",
+     2
+    ],
+    [
+     "formula1:H2O@0",
+     3
+    ],
+    [
+     "formula1:CO2@0",
+     1
+    ]
+   ],
+   "arrow": "->",
+   "name": "铜绿与盐酸",
+   "conditions": "常温",
+   "reaction_type": "复分解反应",
+   "note": ""
+  },
+  "provenance": "measured:高中化学课本",
+  "curriculum": "高中",
+  "topic": "铜及其化合物"
+ }
+]

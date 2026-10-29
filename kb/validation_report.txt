@@ -1,0 +1,15 @@
+PASS  species_junior.json 解析成功，71 条
+PASS  equations_junior.json 解析成功，53 条
+PASS  species_senior.json 解析成功，68 条
+PASS  equations_senior.json 解析成功，56 条
+PASS  atomic_masses.json 解析成功，30 条
+PASS  全部 id 全局唯一（278 条）
+INFO  species composition/id 验算完成，失败 0 条
+PASS  全部 109 条方程式：引用完整、元素守恒、电荷守恒
+INFO  条目计数（curriculum × kind）:
+INFO    初中 equation: 53
+INFO    初中 fact: 30
+INFO    初中 species: 71
+INFO    高中 equation: 56
+INFO    高中 species: 68
+RESULT  ALL PASS（失败 0 项）

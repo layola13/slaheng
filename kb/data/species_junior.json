@@ -1,0 +1,1983 @@
+[
+ {
+  "id": "formula1:H2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢气",
+   "formula": "H2",
+   "composition": {
+    "H": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "H": [
+     0
+    ]
+   },
+   "state_note": "无色无味气体，难溶于水，密度比空气小",
+   "note": "可燃；与氧气（或空气）混合点燃可能爆炸"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "燃料与能源"
+ },
+ {
+  "id": "formula1:O2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧气",
+   "formula": "O2",
+   "composition": {
+    "O": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "O": [
+     0
+    ]
+   },
+   "state_note": "无色无味气体，不易溶于水",
+   "note": "供给呼吸、支持燃烧（助燃性）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:N2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氮气",
+   "formula": "N2",
+   "composition": {
+    "N": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "N": [
+     0
+    ]
+   },
+   "state_note": "无色无味气体，难溶于水",
+   "note": "化学性质不活泼，常用作保护气"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:Cl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯气",
+   "formula": "Cl2",
+   "composition": {
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Cl": [
+     0
+    ]
+   },
+   "state_note": "黄绿色有刺激性气味气体，有毒",
+   "note": "初中仅作了解（自来水消毒）；高中重点"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:C@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳（单质）",
+   "formula": "C",
+   "composition": {
+    "C": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "C": [
+     0
+    ]
+   },
+   "state_note": "固体",
+   "note": "课本以 C 计量单质碳；同素异形体有金刚石、石墨、C60"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "formula1:S@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫",
+   "formula": "S",
+   "composition": {
+    "S": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "S": [
+     0
+    ]
+   },
+   "state_note": "淡黄色固体",
+   "note": "俗称硫磺"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:P@0",
+  "kind": "species",
+  "payload": {
+   "name": "磷",
+   "formula": "P",
+   "composition": {
+    "P": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "P": [
+     0
+    ]
+   },
+   "state_note": "红磷为红色固体，白磷为白色固体",
+   "note": "课本以 P 计量；白磷的实际分子为 P4（见高中集）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:Fe@0",
+  "kind": "species",
+  "payload": {
+   "name": "铁",
+   "formula": "Fe",
+   "composition": {
+    "Fe": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Fe": [
+     0
+    ]
+   },
+   "state_note": "银白色固体（纯铁）",
+   "note": "在潮湿空气中易生锈"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Cu@0",
+  "kind": "species",
+  "payload": {
+   "name": "铜",
+   "formula": "Cu",
+   "composition": {
+    "Cu": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Cu": [
+     0
+    ]
+   },
+   "state_note": "紫红色固体",
+   "note": "导电性良好"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Al@0",
+  "kind": "species",
+  "payload": {
+   "name": "铝",
+   "formula": "Al",
+   "composition": {
+    "Al": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Al": [
+     0
+    ]
+   },
+   "state_note": "银白色固体",
+   "note": "表面易形成致密的氧化铝薄膜"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Zn@0",
+  "kind": "species",
+  "payload": {
+   "name": "锌",
+   "formula": "Zn",
+   "composition": {
+    "Zn": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Zn": [
+     0
+    ]
+   },
+   "state_note": "银白色固体",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Mg@0",
+  "kind": "species",
+  "payload": {
+   "name": "镁",
+   "formula": "Mg",
+   "composition": {
+    "Mg": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Mg": [
+     0
+    ]
+   },
+   "state_note": "银白色固体",
+   "note": "燃烧发出耀眼白光"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Ag@0",
+  "kind": "species",
+  "payload": {
+   "name": "银",
+   "formula": "Ag",
+   "composition": {
+    "Ag": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Ag": [
+     0
+    ]
+   },
+   "state_note": "银白色固体",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Hg@0",
+  "kind": "species",
+  "payload": {
+   "name": "汞",
+   "formula": "Hg",
+   "composition": {
+    "Hg": 1
+   },
+   "charge": 0,
+   "category": "单质",
+   "valences": {
+    "Hg": [
+     0
+    ]
+   },
+   "state_note": "常温下唯一的液态金属，有毒",
+   "note": "俗称水银"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:H2O@0",
+  "kind": "species",
+  "payload": {
+   "name": "水",
+   "formula": "H2O",
+   "composition": {
+    "H": 2,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "常温下为液体",
+   "note": "电解水实验为经典考点"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "自然界的水"
+ },
+ {
+  "id": "formula1:CO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二氧化碳",
+   "formula": "CO2",
+   "composition": {
+    "C": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色气体，能溶于水",
+   "note": "固体俗称干冰；能使澄清石灰水变浑浊"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "formula1:CO@0",
+  "kind": "species",
+  "payload": {
+   "name": "一氧化碳",
+   "formula": "CO",
+   "composition": {
+    "C": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "C": [
+     2
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色无味气体，难溶于水",
+   "note": "有毒；具有还原性和可燃性"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "燃料与燃烧"
+ },
+ {
+  "id": "formula1:CaO@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧化钙",
+   "formula": "CaO",
+   "composition": {
+    "Ca": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "俗称生石灰；与水反应放热"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:Fe2O3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧化铁",
+   "formula": "Fe2O3",
+   "composition": {
+    "Fe": 2,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Fe": [
+     3
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "红色固体",
+   "note": "铁锈的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Fe3O4@0",
+  "kind": "species",
+  "payload": {
+   "name": "四氧化三铁",
+   "formula": "Fe3O4",
+   "composition": {
+    "Fe": 3,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Fe": [
+     2,
+     3
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "黑色固体，具有磁性",
+   "note": "铁在氧气中燃烧的产物；铁呈 +2/+3 混合价态"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:CuO@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧化铜",
+   "formula": "CuO",
+   "composition": {
+    "Cu": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "黑色固体",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:MgO@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧化镁",
+   "formula": "MgO",
+   "composition": {
+    "Mg": 1,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Mg": [
+     2
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Al2O3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氧化铝",
+   "formula": "Al2O3",
+   "composition": {
+    "Al": 2,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Al": [
+     3
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "铝表面氧化膜的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:MnO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二氧化锰",
+   "formula": "MnO2",
+   "composition": {
+    "Mn": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "Mn": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "黑色固体",
+   "note": "常用催化剂（过氧化氢、氯酸钾分解）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:SO2@0",
+  "kind": "species",
+  "payload": {
+   "name": "二氧化硫",
+   "formula": "SO2",
+   "composition": {
+    "S": 1,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "S": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色有刺激性气味气体，有毒",
+   "note": "形成酸雨的气体之一"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:P2O5@0",
+  "kind": "species",
+  "payload": {
+   "name": "五氧化二磷",
+   "formula": "P2O5",
+   "composition": {
+    "P": 2,
+    "O": 5
+   },
+   "charge": 0,
+   "category": "氧化物",
+   "valences": {
+    "P": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "可用作干燥剂"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:H2O2@0",
+  "kind": "species",
+  "payload": {
+   "name": "过氧化氢",
+   "formula": "H2O2",
+   "composition": {
+    "H": 2,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "过氧化物",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -1
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "俗称双氧水；其中氧呈 -1 价"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:HCl@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化氢（盐酸）",
+   "formula": "HCl",
+   "composition": {
+    "H": 1,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "氯化氢为无色气体；盐酸为其水溶液",
+   "note": "浓盐酸有挥发性"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:H2SO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸",
+   "formula": "H2SO4",
+   "composition": {
+    "H": 2,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色黏稠液体",
+   "note": "浓硫酸有吸水性、脱水性（强氧化性见高中）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:HNO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸",
+   "formula": "HNO3",
+   "composition": {
+    "H": 1,
+    "N": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "N": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色液体",
+   "note": "初中作了解；高中重点（强氧化性）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:H2CO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸",
+   "formula": "H2CO3",
+   "composition": {
+    "H": 2,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "只存在于溶液中",
+   "note": "不稳定，易分解"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "碳和碳的氧化物"
+ },
+ {
+  "id": "formula1:H2SO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "亚硫酸",
+   "formula": "H2SO3",
+   "composition": {
+    "H": 2,
+    "S": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "酸",
+   "valences": {
+    "H": [
+     1
+    ],
+    "S": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "只存在于溶液中",
+   "note": "存疑：方程式 SO2+H2O=H2SO3 本身无误，但初中课本多以文字叙述酸雨成因，不同版本是否明列此式不一，故标 assumed"
+  },
+  "provenance": "assumed",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:CH3COOH@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙酸",
+   "formula": "CH3COOH",
+   "composition": {
+    "C": 2,
+    "H": 4,
+    "O": 2
+   },
+   "charge": 0,
+   "category": "酸（有机酸）",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色液体，有刺激性酸味",
+   "note": "俗称醋酸；食醋的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:NaOH@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化钠",
+   "formula": "NaOH",
+   "composition": {
+    "Na": 1,
+    "O": 1,
+    "H": 1
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "俗称烧碱、火碱、苛性钠；强腐蚀性"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:Ca(OH)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化钙",
+   "formula": "Ca(OH)2",
+   "composition": {
+    "Ca": 1,
+    "O": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，微溶于水",
+   "note": "俗称熟石灰、消石灰；其溶液称石灰水"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:KOH@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化钾",
+   "formula": "KOH",
+   "composition": {
+    "K": 1,
+    "O": 1,
+    "H": 1
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "K": [
+     1
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "化学性质与氢氧化钠相似"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:NH3·H2O@0",
+  "kind": "species",
+  "payload": {
+   "name": "氨水",
+   "formula": "NH3·H2O",
+   "composition": {
+    "N": 1,
+    "H": 5,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色液体，有刺激性气味",
+   "note": "氨的水溶液；其中一水合氨为弱碱，受热易分解释放氨气"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:Cu(OH)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化铜",
+   "formula": "Cu(OH)2",
+   "composition": {
+    "Cu": 1,
+    "O": 2,
+    "H": 2
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "蓝色固体，难溶于水",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:Fe(OH)3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氢氧化铁",
+   "formula": "Fe(OH)3",
+   "composition": {
+    "Fe": 1,
+    "O": 3,
+    "H": 3
+   },
+   "charge": 0,
+   "category": "碱",
+   "valences": {
+    "Fe": [
+     3
+    ],
+    "O": [
+     -2
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "红褐色固体，难溶于水",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:NaCl@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化钠",
+   "formula": "NaCl",
+   "composition": {
+    "Na": 1,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "食盐的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:Na2CO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸钠",
+   "formula": "Na2CO3",
+   "composition": {
+    "Na": 2,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "俗称纯碱、苏打；水溶液显碱性"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:NaHCO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸氢钠",
+   "formula": "NaHCO3",
+   "composition": {
+    "Na": 1,
+    "H": 1,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "H": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "俗称小苏打"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:CaCO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸钙",
+   "formula": "CaCO3",
+   "composition": {
+    "Ca": 1,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，难溶于水",
+   "note": "石灰石、大理石的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:CuSO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸铜",
+   "formula": "CuSO4",
+   "composition": {
+    "Cu": 1,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体（无水物）；其水溶液呈蓝色",
+   "note": "无水硫酸铜遇水变蓝，可用来检验水"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:CuSO4·5H2O@0",
+  "kind": "species",
+  "payload": {
+   "name": "五水合硫酸铜",
+   "formula": "CuSO4·5H2O",
+   "composition": {
+    "Cu": 1,
+    "S": 1,
+    "O": 9,
+    "H": 10
+   },
+   "charge": 0,
+   "category": "盐（结晶水合物）",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "蓝色晶体",
+   "note": "俗称胆矾、蓝矾"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:KMnO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "高锰酸钾",
+   "formula": "KMnO4",
+   "composition": {
+    "K": 1,
+    "Mn": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "Mn": [
+     7
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "紫黑色固体",
+   "note": "强氧化剂；实验室制取氧气"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:K2MnO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "锰酸钾",
+   "formula": "K2MnO4",
+   "composition": {
+    "K": 2,
+    "Mn": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "Mn": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "墨绿色固体",
+   "note": "高锰酸钾加热分解的产物之一"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:KClO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯酸钾",
+   "formula": "KClO3",
+   "composition": {
+    "K": 1,
+    "Cl": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "Cl": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "实验室制取氧气（二氧化锰催化）"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "氧气与空气"
+ },
+ {
+  "id": "formula1:KCl@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化钾",
+   "formula": "KCl",
+   "composition": {
+    "K": 1,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "常用钾肥"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:NH4HCO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸氢铵",
+   "formula": "NH4HCO3",
+   "composition": {
+    "N": 1,
+    "H": 5,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": "常用氮肥；受热易分解"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:BaCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化钡",
+   "formula": "BaCl2",
+   "composition": {
+    "Ba": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ba": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "用于检验硫酸根离子"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:AgNO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸银",
+   "formula": "AgNO3",
+   "composition": {
+    "Ag": 1,
+    "N": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ag": [
+     1
+    ],
+    "N": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色晶体，易溶于水",
+   "note": "用于检验氯离子；见光易分解"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:BaSO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸钡",
+   "formula": "BaSO4",
+   "composition": {
+    "Ba": 1,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ba": [
+     2
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，难溶于水、难溶于酸",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:CaCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化钙",
+   "formula": "CaCl2",
+   "composition": {
+    "Ca": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ca": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "可用作干燥剂"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:FeCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化亚铁",
+   "formula": "FeCl2",
+   "composition": {
+    "Fe": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Fe": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "其水溶液呈浅绿色",
+   "note": "铁与稀盐酸、稀硫酸反应的产物含亚铁离子"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:FeCl3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化铁",
+   "formula": "FeCl3",
+   "composition": {
+    "Fe": 1,
+    "Cl": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Fe": [
+     3
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "其水溶液呈黄色",
+   "note": "氧化铁与盐酸反应（除铁锈）的产物"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:FeSO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸亚铁",
+   "formula": "FeSO4",
+   "composition": {
+    "Fe": 1,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Fe": [
+     2
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "其水溶液呈浅绿色",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:CuCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化铜",
+   "formula": "CuCl2",
+   "composition": {
+    "Cu": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "其水溶液呈蓝色",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:ZnSO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸锌",
+   "formula": "ZnSO4",
+   "composition": {
+    "Zn": 1,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Zn": [
+     2
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:MgCl2@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化镁",
+   "formula": "MgCl2",
+   "composition": {
+    "Mg": 1,
+    "Cl": 2
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Mg": [
+     2
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Al2(SO4)3@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸铝",
+   "formula": "Al2(SO4)3",
+   "composition": {
+    "Al": 2,
+    "S": 3,
+    "O": 12
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Al": [
+     3
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Cu(NO3)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "硝酸铜",
+   "formula": "Cu(NO3)2",
+   "composition": {
+    "Cu": 1,
+    "N": 2,
+    "O": 6
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Cu": [
+     2
+    ],
+    "N": [
+     5
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "其水溶液呈蓝色",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "金属与金属材料"
+ },
+ {
+  "id": "formula1:Na2SO4@0",
+  "kind": "species",
+  "payload": {
+   "name": "硫酸钠",
+   "formula": "Na2SO4",
+   "composition": {
+    "Na": 2,
+    "S": 1,
+    "O": 4
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Na": [
+     1
+    ],
+    "S": [
+     6
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:AgCl@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化银",
+   "formula": "AgCl",
+   "composition": {
+    "Ag": 1,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "Ag": [
+     1
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，难溶于水、难溶于酸",
+   "note": ""
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "酸和碱"
+ },
+ {
+  "id": "formula1:NH4Cl@0",
+  "kind": "species",
+  "payload": {
+   "name": "氯化铵",
+   "formula": "NH4Cl",
+   "composition": {
+    "N": 1,
+    "H": 4,
+    "Cl": 1
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ],
+    "Cl": [
+     -1
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "常用氮肥"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:K2CO3@0",
+  "kind": "species",
+  "payload": {
+   "name": "碳酸钾",
+   "formula": "K2CO3",
+   "composition": {
+    "K": 2,
+    "C": 1,
+    "O": 3
+   },
+   "charge": 0,
+   "category": "盐",
+   "valences": {
+    "K": [
+     1
+    ],
+    "C": [
+     4
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "草木灰的主要成分"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:NH3@0",
+  "kind": "species",
+  "payload": {
+   "name": "氨气",
+   "formula": "NH3",
+   "composition": {
+    "N": 1,
+    "H": 3
+   },
+   "charge": 0,
+   "category": "氢化物",
+   "valences": {
+    "N": [
+     -3
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "无色有刺激性气味气体，极易溶于水",
+   "note": "密度比空气小"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ },
+ {
+  "id": "formula1:CH4@0",
+  "kind": "species",
+  "payload": {
+   "name": "甲烷",
+   "formula": "CH4",
+   "composition": {
+    "C": 1,
+    "H": 4
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "C": [
+     -4
+    ],
+    "H": [
+     1
+    ]
+   },
+   "state_note": "无色无味气体，难溶于水",
+   "note": "天然气、沼气的主要成分；最简单的有机物"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "燃料与能源"
+ },
+ {
+  "id": "formula1:C2H5OH@0",
+  "kind": "species",
+  "payload": {
+   "name": "乙醇",
+   "formula": "C2H5OH",
+   "composition": {
+    "C": 2,
+    "H": 6,
+    "O": 1
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "H": [
+     1
+    ],
+    "O": [
+     -2
+    ]
+   },
+   "state_note": "无色有特殊香味的液体，能与水互溶",
+   "note": "俗称酒精；可燃"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:C6H12O6@0",
+  "kind": "species",
+  "payload": {
+   "name": "葡萄糖",
+   "formula": "C6H12O6",
+   "composition": {
+    "C": 6,
+    "H": 12,
+    "O": 6
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {},
+   "state_note": "白色固体，易溶于水",
+   "note": "光合作用的产物、呼吸作用的反应物"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "化学与生活"
+ },
+ {
+  "id": "formula1:CO(NH2)2@0",
+  "kind": "species",
+  "payload": {
+   "name": "尿素",
+   "formula": "CO(NH2)2",
+   "composition": {
+    "C": 1,
+    "O": 1,
+    "N": 2,
+    "H": 4
+   },
+   "charge": 0,
+   "category": "有机物",
+   "valences": {
+    "C": [
+     4
+    ],
+    "N": [
+     -3
+    ]
+   },
+   "state_note": "白色固体，易溶于水",
+   "note": "常用氮肥，含氮量高"
+  },
+  "provenance": "measured:初中化学课本",
+  "curriculum": "初中",
+  "topic": "盐和化肥"
+ }
+]
