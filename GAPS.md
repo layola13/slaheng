@@ -127,9 +127,13 @@
   文件、无 Python 运行时依赖；判分器 `grade/src/grade.sla` 与验收器
   `grade/src/verify.sla` 均为 SLA，`run_grade.sh`/`run_samples.sh` 为
   POSIX sh 薄编排（无判定逻辑，判定/比对全在 SLA 内）。
-- **balanced 口径为契约级自备实现**：check/ 线 C1 就绪前，配平判定
-  （物种多重集对齐 + 原子/电荷守恒）在 grade 内自备，口径与 INTERFACE 的
-  EquationRecord 对齐；check 线就绪后应切换为调用其判定并删自备实现。
+- **balanced 口径已切换至 check 线 C1（集成线关闭本条）**：守恒判定现由
+  check 的 `c1_balance_compute` 执行（grade 经 `@import "../../check/c1.sla"`
+  同编译单元调用；为此 check 侧新增静默结构化口径 C1Balance 与 (ptr,len)
+  视图入口 eq_add_*_view/parse_species_view，grade 侧改名 6 个同名符号
+  GComp/GPState/GRat/grat_make/gcomp_add_scaled/gparse_seq 避让）。grade 只保留
+  骨架对齐（多重集/箭头）与 detail 翻译；样例包切换后仍 8/8。残余边界：
+  C1 每侧 8 项 / 36 元素表 / L0 式形子集，超出在 grade 侧响亮 fail。
 - **value_eq 单位只做字符串精确比对**：量纲向量（7 维）比对依赖 found/ 的
   单位→量纲表；落地后切换。现口径下单位字符串不同即 fail（detail 点名）。
 - **canon1: 物种 id 不可解析**：species/ 的 canon 未就绪，grade v0.1 只认

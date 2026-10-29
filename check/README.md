@@ -34,6 +34,12 @@ canon 的 composition 契约同形，id 对接候集成期）。
   不守恒 / 2 仅电荷不守恒 / 3 两者皆不守恒 / −1 结构错误（解析失败或缺系数）。
   元素不守恒时合并报告一份：`error[C1-element]` 表头 + 逐元素差量行
   （如 ` H: 左 4 右 2`）；电荷为 `error[C1-charge]: 两侧电荷不守恒: 左 {} 右 {}`。
+- 集成接线面（grade 判分切换新增）：`c1_balance_compute(&eq, &C1Balance)` 为
+  check_balance 的静默结构化口径（不打印；code/reason/bad_side/bad_idx +
+  两侧逐元素总量 lt/rt 与电荷总量 lc/rc），check_balance 在其上复现原打印
+  行为；`eq_add_lhs_view/eq_add_rhs_view` 与 formula 的 `parse_species_view`
+  为 (ptr, len) 切片入口；`c1_elem_symbol/c1_nelem` 转发 tables 的元素符号
+  与元素数（@import 可见性只穿一层，下游经 c1 取）。
 - `solve_balance(&eq) -> SolveRes`：配平求解（系数可空缺）。有理数
   Gauss–Jordan 全约化求解空间：恰一维时定向、通分、约分得最小正整数解，
   并整数回代自检。`status`：0 成功（`coeffs[0..n)` 按左后右物种序）/

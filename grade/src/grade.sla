@@ -8,13 +8,14 @@
 //
 // 判定路径零浮点：数值一律走自备精确有理数（十进制字符串逐位解析）；
 // JSON 数字只经 sa_json_as_i64 读取，FLOAT kind 的系数响亮拒绝。
-// 三种断言的判定口径见 grade/README.md；balanced 的配平判定为契约级自备
-// 实现（check/ 线未就绪，先行落地，口径与 INTERFACE 的 EquationRecord 对齐）。
+// 三种断言的判定口径见 grade/README.md；balanced 的守恒判定已切换至
+// check/ 线 C1 口径（c1_balance_compute，见 judge_balanced），本文件只做
+// 骨架对齐（物种多重集/箭头）与结构化结果到 detail 的翻译。
 //
 // 编译器纪律（本机 sa_plugin_sla 当前版本实证，见 GAPS.md）：
 //  - 字符串一律以 (ptr, len) 对传递：String 形参借入 ABI 有已确认缺口
 //    （sa_plugin_sla demos/basic/POTENTIAL_ISSUES.md #15）。
-//  - 含数组的大结构体（Comp/DBuf/IdBuf/EqSide 等）只在属主帧以字面量创建，
+//  - 含数组的大结构体（GComp/DBuf/IdBuf/EqSide 等）只在属主帧以字面量创建，
 //    辅助函数一律经 & 引用原地修改：链式按值传递大结构体时读写会分裂
 //    （同一数组两种读法结果不一致，本线 tg/th 探针实证）。
 //  - 内部指针先绑定具名变量再传 extern（内联传参触发 UseAfterMove）。
@@ -25,6 +26,7 @@
 @import "sa_std/io/print.sai"
 @import "sa_std/string.sa"
 @import "sa_std/ptr.sa"
+@import "../../check/c1.sla"
 
 // ---------- 基础输出（全部走 sa_print_bytes，stdout 纯净） ----------
 
@@ -177,29 +179,29 @@ fn abs_i64(v: i64) -> i64 {
 // 不变量：d > 0，gcd(|n|, d) = 1。量级护栏：约分后 |n| 与 d 均须 <= 1e8，
 // 使交叉乘积 <= 1e16、差分子 <= 2e16，稳在 i64 内；超限响亮报错（课程量级远在此内）。
 
-struct Rat { n: i64, d: i64 }
+struct GRat { n: i64, d: i64 }
 
-fn rat_make(n0: i64, d0: i64) -> Rat {
+fn grat_make(n0: i64, d0: i64) -> GRat {
     let n: i64 = n0;
     let d: i64 = d0;
     if d < 0 { n = 0 - n; d = 0 - d; };
     if n == 0 {
-        return Rat { n: 0, d: 1 };
+        return GRat { n: 0, d: 1 };
     };
     let g: i64 = gcd_i64(n, d);
     if g > 1 {
         n = n / g;
         d = d / g;
     };
-    return Rat { n: n, d: d };
+    return GRat { n: n, d: d };
 }
 
-struct PRat { ok: bool, r: Rat }
+struct PRat { ok: bool, r: GRat }
 
 // 解析 rational 字符串："p/q" 或十进制 "12" / "12.340" / "-0.5"。
 // 逐位十进制解析、绝不经浮点；不支持科学计数法（含 e/E 直接失败）。
 fn rat_parse(p: ptr, n: u64) -> PRat {
-    let bad = PRat { ok: false, r: Rat { n: 0, d: 1 } };
+    let bad = PRat { ok: false, r: GRat { n: 0, d: 1 } };
     // 去首尾空白（显式状态循环，避免越界读）
     let lo: u64 = 0;
     let scanning: bool = true;
@@ -228,7 +230,7 @@ fn rat_parse(p: ptr, n: u64) -> PRat {
         let b = parse_i64_text(PTR_BYTE_ADD(p, slash + 1), hi - slash - 1);
         if !b.ok { return bad; };
         if b.v == 0 { return bad; };
-        let r = rat_make(a.v, b.v);
+        let r = grat_make(a.v, b.v);
         if abs_i64(r.n) > 100000000 { return bad; };
         if r.d > 100000000 { return bad; };
         return PRat { ok: true, r: r };
@@ -238,7 +240,7 @@ fn rat_parse(p: ptr, n: u64) -> PRat {
 }
 
 fn rat_parse_decimal(p: ptr, lo: u64, hi: u64) -> PRat {
-    let bad = PRat { ok: false, r: Rat { n: 0, d: 1 } };
+    let bad = PRat { ok: false, r: GRat { n: 0, d: 1 } };
     let j: u64 = lo;
     let neg: bool = false;
     let b0: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, j));
@@ -267,7 +269,7 @@ fn rat_parse_decimal(p: ptr, lo: u64, hi: u64) -> PRat {
     if !valid { return bad; };
     if digits == 0 { return bad; };
     if neg { num = 0 - num; };
-    let r = rat_make(num, den);
+    let r = grat_make(num, den);
     if abs_i64(r.n) > 100000000 { return bad; };
     if r.d > 100000000 { return bad; };
     return PRat { ok: true, r: r };
@@ -324,7 +326,7 @@ fn cmp_frac_nonneg(an0: i64, ad0: i64, bn0: i64, bd0: i64) -> i64 {
 }
 
 // |a - b| <= tol ? （tol >= 0）。差的分子/分母在护栏内：|an*bd - bn*ad| <= 2e16。
-fn rat_absdiff_le(a: Rat, b: Rat, tol: Rat) -> bool {
+fn rat_absdiff_le(a: GRat, b: GRat, tol: GRat) -> bool {
     let lhs_num: i64 = a.n * b.d - b.n * a.d;
     let lhs_den: i64 = a.d * b.d;
     if lhs_num < 0 { lhs_num = 0 - lhs_num; };
@@ -332,11 +334,11 @@ fn rat_absdiff_le(a: Rat, b: Rat, tol: Rat) -> bool {
     return c <= 0;
 }
 
-// |a - b| 的 Rat（供 detail 显示）。
-fn rat_absdiff(a: Rat, b: Rat) -> Rat {
+// |a - b| 的 GRat（供 detail 显示）。
+fn rat_absdiff(a: GRat, b: GRat) -> GRat {
     let num: i64 = a.n * b.d - b.n * a.d;
     if num < 0 { num = 0 - num; };
-    return rat_make(num, a.d * b.d);
+    return grat_make(num, a.d * b.d);
 }
 
 // ---------- JSON 访问助手（kind 码：0 null 1 bool 2 int 3 float 4 numstr 5 string 6 array 7 object） ----------
@@ -485,9 +487,9 @@ fn elem_index(sp: ptr, sn: u64) -> i64 {
 }
 
 // composition：下标 = 元素表索引（64 槽，表内 48 个 + 余量）。一律 & 原地操作。
-struct Comp { cnt: [i64; 64] }
+struct GComp { cnt: [i64; 64] }
 
-fn comp_clear(c: &Comp) {
+fn comp_clear(c: &GComp) {
     let i: u64 = 0;
     while i < 64 {
         c.cnt[i] = 0;
@@ -495,7 +497,7 @@ fn comp_clear(c: &Comp) {
     }
 }
 
-fn comp_copy(dst: &Comp, src: &Comp) {
+fn comp_copy(dst: &GComp, src: &GComp) {
     let i: u64 = 0;
     while i < 64 {
         dst.cnt[i] = src.cnt[i];
@@ -503,7 +505,7 @@ fn comp_copy(dst: &Comp, src: &Comp) {
     }
 }
 
-fn comp_add_scaled(dst: &Comp, src: &Comp, scale: i64) {
+fn gcomp_add_scaled(dst: &GComp, src: &GComp, scale: i64) {
     let i: u64 = 0;
     while i < 64 {
         dst.cnt[i] = dst.cnt[i] + src.cnt[i] * scale;
@@ -512,7 +514,7 @@ fn comp_add_scaled(dst: &Comp, src: &Comp, scale: i64) {
 }
 
 // 解析错误码：0 ok / 1 语法 / 2 未知元素 / 3 canon id 不可解析 / 4 计数越界 / 5 空
-struct RefParse { ok: bool, err: i64, pos: u64, comp: Comp, charge: i64 }
+struct RefParse { ok: bool, err: i64, pos: u64, comp: GComp, charge: i64 }
 
 fn refparse_reset(r: &RefParse) {
     r.ok = false;
@@ -522,11 +524,11 @@ fn refparse_reset(r: &RefParse) {
     comp_clear(&r.comp);
 }
 
-struct PState { pos: u64, err: i64, comp: Comp }
+struct GPState { pos: u64, err: i64, comp: GComp }
 
 // 递归下降解析一段化学式（到 ')' 或串尾停）：
 // seq := term* ; term := 元素 [计数] | '(' seq ')' [计数]；计数默认 1、须 >= 1。
-fn parse_seq(p: ptr, n: u64, st: &PState, mult: i64) {
+fn gparse_seq(p: ptr, n: u64, st: &GPState, mult: i64) {
     let going: bool = true;
     while going {
         if st.err != 0 { going = false; } else {
@@ -540,12 +542,12 @@ fn parse_seq(p: ptr, n: u64, st: &PState, mult: i64) {
     }
 }
 
-fn parse_term(p: ptr, n: u64, st: &PState, mult: i64) {
+fn parse_term(p: ptr, n: u64, st: &GPState, mult: i64) {
     let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, st.pos));
     if b == 40 {
         // '(' seq ')' [count]
-        let sub = PState { pos: st.pos + 1, err: 0, comp: Comp { cnt: [0i64; 64] } };
-        parse_seq(p, n, &sub, 1);
+        let sub = GPState { pos: st.pos + 1, err: 0, comp: GComp { cnt: [0i64; 64] } };
+        gparse_seq(p, n, &sub, 1);
         if sub.err != 0 {
             st.err = sub.err;
             st.pos = sub.pos;
@@ -567,7 +569,7 @@ fn parse_term(p: ptr, n: u64, st: &PState, mult: i64) {
             st.pos = after.pos;
             return;
         };
-        comp_add_scaled(&st.comp, &sub.comp, after.v * mult);
+        gcomp_add_scaled(&st.comp, &sub.comp, after.v * mult);
         st.pos = after.pos;
         return;
     };
@@ -692,8 +694,8 @@ fn parse_formula_body(p: ptr, n: u64, out: &RefParse) {
         out.err = 5;
         return;
     };
-    let st = PState { pos: 0, err: 0, comp: Comp { cnt: [0i64; 64] } };
-    parse_seq(p, n, &st, 1);
+    let st = GPState { pos: 0, err: 0, comp: GComp { cnt: [0i64; 64] } };
+    gparse_seq(p, n, &st, 1);
     if st.err != 0 {
         out.err = st.err;
         out.pos = st.pos;
@@ -827,7 +829,7 @@ fn idbuf_put_i64(buf: &IdBuf, v: i64) {
 }
 
 // composition -> Hill 规范化学式（写入 buf）。
-fn canon_formula(comp: &Comp, buf: &IdBuf) {
+fn canon_formula(comp: &GComp, buf: &IdBuf) {
     // 收集在场元素索引
     let present = [0u64; 64];
     let pn: u64 = 0;
@@ -869,7 +871,7 @@ fn canon_formula(comp: &Comp, buf: &IdBuf) {
 }
 
 // formula1 占位 id：formula1:<Hill 规范式>@<charge>，写入 out。
-fn species_id_of(comp: &Comp, charge: i64, out: &IdBuf) {
+fn species_id_of(comp: &GComp, charge: i64, out: &IdBuf) {
     out.n = 0;
     idbuf_put(out, STR_PTR("formula1:"), 9);
     canon_formula(comp, out);
@@ -936,7 +938,7 @@ fn dput_i64(d: &DBuf, v: i64) {
     }
 }
 
-fn dput_rat(d: &DBuf, r: Rat) {
+fn dput_rat(d: &DBuf, r: GRat) {
     dput_i64(d, r.n);
     if r.d != 1 {
         dputc(d, 47);
@@ -1043,30 +1045,6 @@ fn parse_eq_side(eq: u64, kp: ptr, kn: u64, s: &EqSide) {
     }
 }
 
-// 一侧总量：composition 与电荷（系数加权），写入 out。
-struct SideTot { ok: bool, bad_at: u64, bad_err: i64, comp: Comp, charge: i64 }
-fn side_tot(side: &EqSide, out: &SideTot) {
-    out.ok = true;
-    out.bad_at = 0;
-    out.bad_err = 0;
-    out.charge = 0;
-    comp_clear(&out.comp);
-    let rp = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
-    let i: u64 = 0;
-    while i < side.n {
-        parse_species_ref(side.rp[i], side.rl[i], &rp);
-        if !rp.ok {
-            out.ok = false;
-            out.bad_at = i;
-            out.bad_err = rp.err;
-            return;
-        };
-        comp_add_scaled(&out.comp, &rp.comp, side.cf[i]);
-        out.charge = out.charge + rp.charge * side.cf[i];
-        i = i + 1;
-    }
-}
-
 // 物种多重集比对（学生侧 vs 骨架侧，忽略系数），结果写入 out：
 // code: 0 一致；1 学生多出（bad_at = 学生下标）；2 骨架多出（学生缺失）；
 //       3 某物种解析失败（bad_at/bad_err，bad_side: 0 学生 / 1 骨架）
@@ -1077,8 +1055,8 @@ fn multiset_cmp(stud: &EqSide, skel: &EqSide, out: &MSCmp) {
     out.bad_err = 0;
     out.bad_side = 0;
     let used = [false; 16];
-    let rp = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
-    let kp = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
+    let rp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let kp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
     let want = IdBuf { b: [0u8; 168], n: 0 };
     let have = IdBuf { b: [0u8; 168], n: 0 };
     let i: u64 = 0;
@@ -1124,13 +1102,46 @@ fn multiset_cmp(stud: &EqSide, skel: &EqSide, out: &MSCmp) {
 }
 
 // ---------- 三种断言的判定 ----------
-// balanced 的 check 口径（契约级自备实现，check/ 就绪后切换）：
+// balanced 的判定口径（集成期已切换至 check 线 C1）：
 //   题面断言 equation 为骨架——两侧物种多重集（按 species_id 级别）与箭头是期望，
-//   骨架系数仅占位、不参与判定；学生方程须物种/箭头与骨架一致，且自身两侧
-//   每个元素的原子总数相等、电荷总数相等（系数均为正整数）。
+//   骨架系数仅占位、不参与判定；学生方程须物种/箭头与骨架一致（本文件判定），
+//   且自身守恒（元素/电荷）由 check 线 c1_balance_compute 判定（系数均为正整数）。
 
 fn eqside_new() -> EqSide {
     return EqSide { err: 0, n: 0, rp: [PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL()], rl: [0u64; 16], cf: [0i64; 16] };
+}
+
+// 物种引用切分（为构造 check 的 Equation 备料）：把引用切为化学式本体
+// (body_p, body_n) 与电荷 charge，切分规则与 parse_species_ref 一致
+// （formula1: 占位 id 取 @ 前本体与 @ 后电荷；原始式走 strip_charge）。
+struct RefSplit { body_p: ptr, body_n: u64, charge: i64, ok: bool }
+fn ref_split(p: ptr, n: u64, out: &RefSplit) {
+    out.body_p = p;
+    out.body_n = n;
+    out.charge = 0;
+    out.ok = true;
+    if starts_with(p, n, STR_PTR("formula1:"), STR_LEN("formula1:")) {
+        let inner_p: ptr = PTR_BYTE_ADD(p, 9);
+        let inner_n: u64 = n - 9;
+        let at: u64 = inner_n;
+        let i: u64 = 0;
+        let found: bool = false;
+        while i < inner_n {
+            if PTR_READ_U8(PTR_BYTE_ADD(inner_p, i)) == 64 { at = i; found = true; };
+            i = i + 1;
+        }
+        if !found { out.ok = false; return; };
+        let chg = parse_i64_text(PTR_BYTE_ADD(inner_p, at + 1), inner_n - at - 1);
+        if !chg.ok { out.ok = false; return; };
+        out.body_p = inner_p;
+        out.body_n = at;
+        out.charge = chg.v;
+        return;
+    };
+    let cut = strip_charge(p, n);
+    out.body_p = p;
+    out.body_n = cut.body_len;
+    out.charge = cut.charge;
 }
 
 fn judge_balanced(asn: u64, item: u64, d: &DBuf) -> bool {
@@ -1217,68 +1228,102 @@ fn judge_balanced(asn: u64, item: u64, d: &DBuf) -> bool {
         bal_ms_detail(d, &mc, &t_rhs, &s_rhs, STR_PTR("右侧"), STR_LEN("右侧"));
         return false;
     };
-    // 总量守恒（学生方程自身两侧）
-    let lt = SideTot { ok: true, bad_at: 0, bad_err: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
-    let rt = SideTot { ok: true, bad_at: 0, bad_err: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
-    side_tot(&t_lhs, &lt);
-    if !lt.ok {
-        dput_lit(d, STR_PTR("答案左侧物种「"), STR_LEN("答案左侧物种「"));
-        dput(d, t_lhs.rp[lt.bad_at], t_lhs.rl[lt.bad_at]);
-        dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
-        dput_ref_err(d, lt.bad_err);
+    // 守恒判定（集成期切换至 check 线 C1 口径）：学生方程构造为 check 的
+    // Equation（物种引用经 ref_split 切分为 本体+电荷），由 c1_balance_compute
+    // 静默判定；本函数只把结构化结果（逐元素总量/电荷总量）译为 detail，
+    // 不再自备守恒算术。C1 规模上限每侧 8 项，超出响亮 fail、不静默截断。
+    if t_lhs.n > 8 || t_rhs.n > 8 {
+        dput_lit(d, STR_PTR("答案方程物种数超出 C1 检验上限（每侧至多 8 项）：左 "), STR_LEN("答案方程物种数超出 C1 检验上限（每侧至多 8 项）：左 "));
+        dput_i64(d, t_lhs.n as i64);
+        dput_lit(d, STR_PTR(" 项，右 "), STR_LEN(" 项，右 "));
+        dput_i64(d, t_rhs.n as i64);
+        dput_lit(d, STR_PTR(" 项"), STR_LEN(" 项"));
         return false;
     };
-    side_tot(&t_rhs, &rt);
-    if !rt.ok {
-        dput_lit(d, STR_PTR("答案右侧物种「"), STR_LEN("答案右侧物种「"));
-        dput(d, t_rhs.rp[rt.bad_at], t_rhs.rl[rt.bad_at]);
-        dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
-        dput_ref_err(d, rt.bad_err);
+    let eq = eq_new();
+    let rs = RefSplit { body_p: PTR_NULL(), body_n: 0, charge: 0, ok: false };
+    let bi: u64 = 0;
+    while bi < t_lhs.n {
+        ref_split(t_lhs.rp[bi], t_lhs.rl[bi], &rs);
+        if !rs.ok {
+            dput_lit(d, STR_PTR("答案左侧物种「"), STR_LEN("答案左侧物种「"));
+            dput(d, t_lhs.rp[bi], t_lhs.rl[bi]);
+            dput_lit(d, STR_PTR("」引用切分失败"), STR_LEN("」引用切分失败"));
+            return false;
+        };
+        eq_add_lhs_view(&eq, rs.body_p, rs.body_n, rs.charge, t_lhs.cf[bi], true);
+        bi = bi + 1;
+    }
+    let bj: u64 = 0;
+    while bj < t_rhs.n {
+        ref_split(t_rhs.rp[bj], t_rhs.rl[bj], &rs);
+        if !rs.ok {
+            dput_lit(d, STR_PTR("答案右侧物种「"), STR_LEN("答案右侧物种「"));
+            dput(d, t_rhs.rp[bj], t_rhs.rl[bj]);
+            dput_lit(d, STR_PTR("」引用切分失败"), STR_LEN("」引用切分失败"));
+            return false;
+        };
+        eq_add_rhs_view(&eq, rs.body_p, rs.body_n, rs.charge, t_rhs.cf[bj], true);
+        bj = bj + 1;
+    }
+    let rep = c1_balance_new();
+    c1_balance_compute(&eq, &rep);
+    if rep.code == -1 {
+        // C1 口径解析失败（元素不在 C1 元素表内 / 式形超出 L0 子集等），定位到项
+        if rep.bad_side == 0 {
+            dput_lit(d, STR_PTR("答案左侧物种「"), STR_LEN("答案左侧物种「"));
+            dput(d, t_lhs.rp[rep.bad_idx as u64], t_lhs.rl[rep.bad_idx as u64]);
+        } else {
+            dput_lit(d, STR_PTR("答案右侧物种「"), STR_LEN("答案右侧物种「"));
+            dput(d, t_rhs.rp[rep.bad_idx as u64], t_rhs.rl[rep.bad_idx as u64]);
+        };
+        dput_lit(d, STR_PTR("」无法以 C1 口径解析"), STR_LEN("」无法以 C1 口径解析"));
         return false;
     };
-    let bad_any: bool = false;
-    let total: u64 = elem_count_total();
-    let i: u64 = 0;
-    while i < total {
-        if lt.comp.cnt[i] != rt.comp.cnt[i] {
+    if rep.code != 0 {
+        let bad_any: bool = false;
+        let ne: i64 = c1_nelem();
+        let e: i64 = 0;
+        while e < ne {
+            if rep.lt[e] != rep.rt[e] {
+                if bad_any { dput_lit(d, STR_PTR("；"), STR_LEN("；")); };
+                let sym = c1_elem_symbol(e);
+                dput_lit(d, STR_PTR("元素 "), STR_LEN("元素 "));
+                dput(d, sym, len(sym));
+                dput_lit(d, STR_PTR(" 未守恒：左侧共 "), STR_LEN(" 未守恒：左侧共 "));
+                dput_i64(d, rep.lt[e]);
+                dput_lit(d, STR_PTR(" 个，右侧共 "), STR_LEN(" 个，右侧共 "));
+                dput_i64(d, rep.rt[e]);
+                dput_lit(d, STR_PTR(" 个"), STR_LEN(" 个"));
+                bad_any = true;
+            };
+            e = e + 1;
+        }
+        if rep.lc != rep.rc {
             if bad_any { dput_lit(d, STR_PTR("；"), STR_LEN("；")); };
-            let s = elem_sym_at(i);
-            dput_lit(d, STR_PTR("元素 "), STR_LEN("元素 "));
-            dput(d, s.p, s.n);
-            dput_lit(d, STR_PTR(" 未守恒：左侧共 "), STR_LEN(" 未守恒：左侧共 "));
-            dput_i64(d, lt.comp.cnt[i]);
-            dput_lit(d, STR_PTR(" 个，右侧共 "), STR_LEN(" 个，右侧共 "));
-            dput_i64(d, rt.comp.cnt[i]);
-            dput_lit(d, STR_PTR(" 个"), STR_LEN(" 个"));
+            dput_lit(d, STR_PTR("电荷未守恒：左侧总电荷 "), STR_LEN("电荷未守恒：左侧总电荷 "));
+            dput_i64(d, rep.lc);
+            dput_lit(d, STR_PTR("，右侧总电荷 "), STR_LEN("，右侧总电荷 "));
+            dput_i64(d, rep.rc);
             bad_any = true;
         };
-        i = i + 1;
-    }
-    if lt.charge != rt.charge {
-        if bad_any { dput_lit(d, STR_PTR("；"), STR_LEN("；")); };
-        dput_lit(d, STR_PTR("电荷未守恒：左侧总电荷 "), STR_LEN("电荷未守恒：左侧总电荷 "));
-        dput_i64(d, lt.charge);
-        dput_lit(d, STR_PTR("，右侧总电荷 "), STR_LEN("，右侧总电荷 "));
-        dput_i64(d, rt.charge);
-        bad_any = true;
-    };
-    if bad_any {
         return false;
     };
     dput_lit(d, STR_PTR("配平成立：两侧物种与题面一致，各元素原子数与总电荷守恒（"), STR_LEN("配平成立：两侧物种与题面一致，各元素原子数与总电荷守恒（"));
-    let kinds: u64 = 0;
-    let k: u64 = 0;
-    while k < total {
-        if lt.comp.cnt[k] != 0 { kinds = kinds + 1; };
+    let kinds: i64 = 0;
+    let k: i64 = 0;
+    let ne2: i64 = c1_nelem();
+    while k < ne2 {
+        if rep.lt[k] != 0 { kinds = kinds + 1; };
         k = k + 1;
     }
-    dput_i64(d, kinds as i64);
+    dput_i64(d, kinds);
     dput_lit(d, STR_PTR(" 种元素）"), STR_LEN(" 种元素）"));
     return true;
 }
 
 fn bal_ms_detail(d: &DBuf, mc: &MSCmp, stud: &EqSide, skel: &EqSide, sp: ptr, sn: u64) {
-    let rp = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
+    let rp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
     let id = IdBuf { b: [0u8; 168], n: 0 };
     if mc.code == 3 {
         if mc.bad_side == 0 {
@@ -1452,8 +1497,8 @@ fn judge_species_eq(asn: u64, item: u64, d: &DBuf) -> bool {
         dput_lit(d, STR_PTR("缺少比较对象 b（答案未提供、断言亦未给出）"), STR_LEN("缺少比较对象 b（答案未提供、断言亦未给出）"));
         return false;
     };
-    let ra = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
-    let rb = RefParse { ok: false, err: 0, pos: 0, comp: Comp { cnt: [0i64; 64] }, charge: 0 };
+    let ra = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let rb = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
     parse_species_ref(a.p, a.n, &ra);
     if !ra.ok {
         dput_lit(d, STR_PTR("题面物种「"), STR_LEN("题面物种「"));

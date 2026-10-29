@@ -124,6 +124,32 @@ fn eq_add_rhs(eq: &Equation, formula: ptr, charge: i64, coeff: i64, has_coeff: b
     eq.nr = eq.nr + 1;
 }
 
+// (ptr, len) 视图版 add（集成期接线新增）：物种文本为切片时使用，口径与
+// eq_add_lhs/eq_add_rhs 一致，仅解析走 parse_species_view。
+fn eq_add_lhs_view(eq: &Equation, s: ptr, n: u64, charge: i64, coeff: i64, has_coeff: bool) {
+    if eq.nl >= 8 { panic(3101); };
+    let sp = parse_species_view(s, n, charge);
+    eq.lhs[eq.nl] = Term { sp: sp, coeff: coeff, has_coeff: has_coeff };
+    eq.nl = eq.nl + 1;
+}
+
+fn eq_add_rhs_view(eq: &Equation, s: ptr, n: u64, charge: i64, coeff: i64, has_coeff: bool) {
+    if eq.nr >= 8 { panic(3102); };
+    let sp = parse_species_view(s, n, charge);
+    eq.rhs[eq.nr] = Term { sp: sp, coeff: coeff, has_coeff: has_coeff };
+    eq.nr = eq.nr + 1;
+}
+
+// 跨线消费方（如 grade）取元素符号/元素数的转发面：tables.sla 的符号对
+// 下游文件不可见（@import 可见性只穿一层），经 c1 本层转发。
+fn c1_elem_symbol(e: i64) -> ptr {
+    return elem_symbol(e);
+}
+
+fn c1_nelem() -> i64 {
+    return nelem();
+}
+
 // side: 0 = 左侧（反应物），1 = 右侧（生成物）
 fn term_count(eq: &Equation, side: i64, ti: i64, e: i64) -> i64 {
     if side == 0 { return eq.lhs[ti].sp.comp.counts[e]; };
@@ -205,96 +231,154 @@ fn eq_species_ok(eq: &Equation) -> bool {
 // ---- 交付 1：配平检查 ----
 // 返回码：0 守恒；1 仅元素不守恒；2 仅电荷不守恒；3 两者皆不守恒；-1 结构错误
 // （解析失败或缺系数）。元素不守恒时合并为一份报告：表头一行 + 逐元素差量行。
-fn check_balance(eq: &Equation) -> i64 {
-    if !eq_species_ok(eq) { return -1; };
+//
+// 集成期接线（grade 判分切换）：判定计算与打印分离——c1_balance_compute 为
+// 静默结构化口径（不打印、结果填入 &C1Balance），check_balance 在其上复现
+// 原打印行为（文本逐字不变）。消费方（如 grade，其 stdout 只许 VerdictReport
+// JSON）调用 compute 面，禁止调用打印面。
+// C1Balance.reason：0 = 已完成守恒计算；1 = 物种解析失败（bad_side/bad_idx
+// 定位，0 左 1 右）；2 = 缺系数（定位同上）。code = -1 时 reason 必非 0。
+struct C1Balance {
+    code: i64,
+    reason: i64,
+    bad_side: i64,
+    bad_idx: i64,
+    lt: [i64; 36],
+    rt: [i64; 36],
+    lc: i64,
+    rc: i64,
+}
+
+fn c1_balance_new() -> C1Balance {
+    return C1Balance { code: 0, reason: 0, bad_side: 0, bad_idx: 0, lt: [0; 36], rt: [0; 36], lc: 0, rc: 0 };
+}
+
+fn c1_balance_compute(eq: &Equation, rep: &C1Balance) {
+    rep.code = 0;
+    rep.reason = 0;
+    rep.bad_side = 0;
+    rep.bad_idx = 0;
+    rep.lc = 0;
+    rep.rc = 0;
+    let z = 0;
+    while z < 36 {
+        rep.lt[z] = 0;
+        rep.rt[z] = 0;
+        z = z + 1;
+    }
     let i = 0;
     while i < eq.nl {
-        if !term_has_coeff(eq, 0, i) {
-            p_str("error[C1-coeff]: 左侧物种 ");
-            p_str(term_formula(eq, 0, i));
-            p_str(" 缺系数，配平检查需要已配平方程式");
-            p_nl();
-            return -1;
+        if !term_ok(eq, 0, i) {
+            rep.code = -1; rep.reason = 1; rep.bad_side = 0; rep.bad_idx = i;
+            return;
         };
         i = i + 1;
     }
     let j = 0;
     while j < eq.nr {
-        if !term_has_coeff(eq, 1, j) {
-            p_str("error[C1-coeff]: 右侧物种 ");
-            p_str(term_formula(eq, 1, j));
-            p_str(" 缺系数，配平检查需要已配平方程式");
-            p_nl();
-            return -1;
+        if !term_ok(eq, 1, j) {
+            rep.code = -1; rep.reason = 1; rep.bad_side = 1; rep.bad_idx = j;
+            return;
         };
         j = j + 1;
     }
-    let lt: [i64; 36] = [0; 36];
-    let rt: [i64; 36] = [0; 36];
     let a = 0;
     while a < eq.nl {
-        let e = 0;
-        while e < 36 {
-            lt[e] = lt[e] + term_coeff(eq, 0, a) * term_count(eq, 0, a, e);
-            e = e + 1;
-        }
+        if !term_has_coeff(eq, 0, a) {
+            rep.code = -1; rep.reason = 2; rep.bad_side = 0; rep.bad_idx = a;
+            return;
+        };
         a = a + 1;
     }
     let b = 0;
     while b < eq.nr {
-        let e = 0;
-        while e < 36 {
-            rt[e] = rt[e] + term_coeff(eq, 1, b) * term_count(eq, 1, b, e);
-            e = e + 1;
-        }
+        if !term_has_coeff(eq, 1, b) {
+            rep.code = -1; rep.reason = 2; rep.bad_side = 1; rep.bad_idx = b;
+            return;
+        };
         b = b + 1;
     }
-    let lc = 0;
     let x = 0;
     while x < eq.nl {
-        lc = lc + term_coeff(eq, 0, x) * term_charge(eq, 0, x);
+        let e = 0;
+        while e < 36 {
+            rep.lt[e] = rep.lt[e] + term_coeff(eq, 0, x) * term_count(eq, 0, x, e);
+            e = e + 1;
+        }
+        rep.lc = rep.lc + term_coeff(eq, 0, x) * term_charge(eq, 0, x);
         x = x + 1;
     }
-    let rc = 0;
     let y = 0;
     while y < eq.nr {
-        rc = rc + term_coeff(eq, 1, y) * term_charge(eq, 1, y);
+        let e = 0;
+        while e < 36 {
+            rep.rt[e] = rep.rt[e] + term_coeff(eq, 1, y) * term_count(eq, 1, y, e);
+            e = e + 1;
+        }
+        rep.rc = rep.rc + term_coeff(eq, 1, y) * term_charge(eq, 1, y);
         y = y + 1;
     }
     let elem_bad = false;
-    let e = 0;
-    while e < 36 {
-        if lt[e] != rt[e] { elem_bad = true; };
-        e = e + 1;
+    let e2 = 0;
+    while e2 < 36 {
+        if rep.lt[e2] != rep.rt[e2] { elem_bad = true; };
+        e2 = e2 + 1;
     }
-    let charge_bad = lc != rc;
-    if elem_bad {
+    let mask = 0;
+    if elem_bad { mask = mask + 1; };
+    if rep.lc != rep.rc { mask = mask + 2; };
+    rep.code = mask;
+}
+
+fn check_balance(eq: &Equation) -> i64 {
+    let rep = c1_balance_new();
+    c1_balance_compute(eq, &rep);
+    if rep.code == -1 {
+        if rep.reason == 1 {
+            if rep.bad_side == 0 {
+                p_str("error[C1-parse]: 左侧物种 ");
+            } else {
+                p_str("error[C1-parse]: 右侧物种 ");
+            };
+            p_str(term_formula(eq, rep.bad_side, rep.bad_idx));
+            p_str(" 解析失败");
+            p_nl();
+        } else {
+            if rep.bad_side == 0 {
+                p_str("error[C1-coeff]: 左侧物种 ");
+            } else {
+                p_str("error[C1-coeff]: 右侧物种 ");
+            };
+            p_str(term_formula(eq, rep.bad_side, rep.bad_idx));
+            p_str(" 缺系数，配平检查需要已配平方程式");
+            p_nl();
+        };
+        return -1;
+    };
+    if rep.code == 0 {
+        println("ok[C1]: 元素与电荷均守恒");
+        return 0;
+    };
+    if rep.code == 1 || rep.code == 3 {
         println("error[C1-element]: 两侧元素不守恒，逐元素差量:");
         let e2 = 0;
         while e2 < 36 {
-            if lt[e2] != rt[e2] {
+            if rep.lt[e2] != rep.rt[e2] {
                 p_str(" ");
                 p_str(elem_symbol(e2));
                 p_str(": 左 ");
-                p_i64(lt[e2]);
+                p_i64(rep.lt[e2]);
                 p_str(" 右 ");
-                p_i64(rt[e2]);
+                p_i64(rep.rt[e2]);
                 p_nl();
             };
             e2 = e2 + 1;
         }
     };
-    if charge_bad {
-        println("error[C1-charge]: 两侧电荷不守恒: 左 {} 右 {}", lc, rc);
+    if rep.code == 2 || rep.code == 3 {
+        println("error[C1-charge]: 两侧电荷不守恒: 左 {} 右 {}", rep.lc, rep.rc);
     };
-    if !elem_bad && !charge_bad {
-        println("ok[C1]: 元素与电荷均守恒");
-        return 0;
-    };
-    let mask = 0;
-    if elem_bad { mask = mask + 1; };
-    if charge_bad { mask = mask + 2; };
-    return mask;
+    return rep.code;
 }
 
 // ---- 交付 2：配平求解（L0 习题形态，精确有理数） ----

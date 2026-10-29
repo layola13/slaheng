@@ -1,0 +1,5 @@
+// L0-e2e-001 学生作答（错）：系数未配平，氧原子不守恒
+species H2
+species O2
+species H2O
+assert balanced 1 H2 + 1 O2 -> 1 H2O

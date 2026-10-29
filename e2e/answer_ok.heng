@@ -1,0 +1,5 @@
+// L0-e2e-001 学生作答（对）：氢气燃烧配平
+species H2
+species O2
+species H2O
+assert balanced 2 H2 + 1 O2 -> 2 H2O

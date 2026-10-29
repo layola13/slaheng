@@ -1,0 +1,1 @@
+{"problem_id":"L0-e2e-001","results":[{"assertion_index":0,"pass":true,"detail":"配平成立：两侧物种与题面一致，各元素原子数与总电荷守恒（2 种元素）","provenance":["derived"]}],"all_pass":true}

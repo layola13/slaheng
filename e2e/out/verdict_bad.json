@@ -1,0 +1,1 @@
+{"problem_id":"L0-e2e-001","results":[{"assertion_index":0,"pass":false,"detail":"元素 O 未守恒：左侧共 2 个，右侧共 1 个","provenance":["derived"]}],"all_pass":false}

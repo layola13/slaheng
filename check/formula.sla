@@ -139,6 +139,19 @@ fn parse_species(formula: ptr, charge: i64) -> Species {
     return Species { comp: comp, charge: charge, formula: formula, ok: ok };
 }
 
+// (ptr, len) 视图入口（集成期接线新增）：与 parse_species 同口径，仅长度由
+// 调用方显式给出、不走 len(formula)——供持有切片文本的跨线消费方（如 grade
+// 从 JSON 缓冲中切出的物种引用）构造 Species。Species.formula 仍存 s 本人，
+// 仅打印路径（term_formula + len）会受长度口径影响；静默判定路径不依赖它。
+fn parse_species_view(s: ptr, n: u64, charge: i64) -> Species {
+    let total: i64 = n as i64;
+    let comp = comp_new();
+    let st = PState { pos: 0, ok: false };
+    parse_seq(s, n, total, 0, &comp, &st);
+    let ok = st.ok && st.pos == total && comp_distinct(&comp) > 0;
+    return Species { comp: comp, charge: charge, formula: s, ok: ok };
+}
+
 // 中性物种简写
 fn sp(formula: ptr) -> Species {
     return parse_species(formula, 0);

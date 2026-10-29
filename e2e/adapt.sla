@@ -1,0 +1,111 @@
+// adapt.sla —— 衡 e2e 适配器（集成线）：lang 解析输出 -> grade 答案格式。
+// 用法： adapt <lang_output.json> <problem_id> <out_answer.json>
+// 行为：取 lang 输出 assertions[0].equation（断言须为 balanced），包装为
+//   {"problem_id":"<problem_id>","items":[{"equation":<equation>}]} 写出。
+// problem_id 由调用方给（须为 JSON 安全的 ASCII 串，本例 L0-e2e-001）；
+// equation 节点经 sa_json_stringify 原样序列化嵌回，不做任何数值改动。
+// 失败一律响亮：退出码 2 用法 / 3 读解析失败 / 4 结构不合 / 5 写失败。
+
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+
+struct JStr { ok: bool, p: ptr, n: u64 }
+
+fn jget(obj: u64, kp: ptr, kn: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_object_get(obj, kp, kn, &tmp) != 0 { return 0; };
+    return tmp;
+}
+
+fn jidx(arr: u64, i: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_array_get(arr, i, &tmp) != 0 { return 0; };
+    return tmp;
+}
+
+fn jcount(node: u64) -> u64 {
+    let c: u64 = 0;
+    if sa_json_value_count(node, &c) != 0 { return 0; };
+    return c;
+}
+
+fn jnode_str(node: u64) -> JStr {
+    let r = JStr { ok: false, p: PTR_NULL(), n: 0 };
+    if node == 0 { return r; };
+    if sa_json_kind(node) != 5 { return r; };
+    r.ok = true;
+    r.p = sa_json_string_ptr(node);
+    r.n = sa_json_string_len(node);
+    return r;
+}
+
+fn err_exit(code: i32, mp: ptr, mn: u64) -> i32 {
+    sa_print_bytes(STR_PTR("adapt error: "), STR_LEN("adapt error: "));
+    sa_print_bytes(mp, mn);
+    sa_print_bytes(STR_PTR("\n"), STR_LEN("\n"));
+    return code;
+}
+
+// 固定容量输出缓冲（字节追加，溢出响亮 panic）
+struct OBuf { b: [u8; 8192], n: u64 }
+fn oput(o: &OBuf, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        if o.n >= 8192 { panic(5501); };
+        o.b[o.n] = PTR_READ_U8(PTR_BYTE_ADD(p, i));
+        o.n = o.n + 1;
+        i = i + 1;
+    }
+}
+fn oput_lit(o: &OBuf, p: ptr, n: u64) { oput(o, p, n); }
+
+fn main() -> i32 {
+    let abuf: u64 = sa_env_args_json();
+    let ap: ptr = sa_env_buffer_data(abuf);
+    let an: u64 = sa_env_buffer_len(abuf);
+    let args: u64 = sa_json_parse(ap, an);
+    if args == 0 { return err_exit(2, STR_PTR("无法读取命令行参数"), STR_LEN("无法读取命令行参数")); };
+    if jcount(args) < 4 { return err_exit(2, STR_PTR("用法：adapt <lang_output.json> <problem_id> <out_answer.json>"), STR_LEN("用法：adapt <lang_output.json> <problem_id> <out_answer.json>")); };
+    let f_lang = jnode_str(jidx(args, 1));
+    let pid = jnode_str(jidx(args, 2));
+    let f_out = jnode_str(jidx(args, 3));
+    if !f_lang.ok || !pid.ok || !f_out.ok {
+        return err_exit(2, STR_PTR("参数须为字符串"), STR_LEN("参数须为字符串"));
+    };
+    // 读 lang 输出
+    let h: u64 = 0;
+    let rc: i32 = sa_std_fs_read_to_string(f_lang.p, f_lang.n, 16777216, &h);
+    if rc != 0 { return err_exit(3, STR_PTR("lang 输出文件读取失败"), STR_LEN("lang 输出文件读取失败")); };
+    let dp: ptr = sa_fs_read_buffer_data(h);
+    let dn: u64 = sa_fs_read_buffer_len(h);
+    let doc: u64 = sa_json_parse(dp, dn);
+    if doc == 0 { return err_exit(3, STR_PTR("lang 输出 JSON 解析失败"), STR_LEN("lang 输出 JSON 解析失败")); };
+    if sa_json_kind(doc) != 7 { return err_exit(4, STR_PTR("lang 输出根节点不是对象"), STR_LEN("lang 输出根节点不是对象")); };
+    let anode: u64 = jget(doc, STR_PTR("assertions"), STR_LEN("assertions"));
+    if anode == 0 { return err_exit(4, STR_PTR("lang 输出缺少 assertions"), STR_LEN("lang 输出缺少 assertions")); };
+    if sa_json_kind(anode) != 6 { return err_exit(4, STR_PTR("assertions 不是数组"), STR_LEN("assertions 不是数组")); };
+    if jcount(anode) < 1 { return err_exit(4, STR_PTR("assertions 为空"), STR_LEN("assertions 为空")); };
+    let asn: u64 = jidx(anode, 0);
+    let kind = jnode_str(jget(asn, STR_PTR("kind"), STR_LEN("kind")));
+    if !kind.ok { return err_exit(4, STR_PTR("断言缺少 kind"), STR_LEN("断言缺少 kind")); };
+    let eq: u64 = jget(asn, STR_PTR("equation"), STR_LEN("equation"));
+    if eq == 0 { return err_exit(4, STR_PTR("断言缺少 equation"), STR_LEN("断言缺少 equation")); };
+    let sh: u64 = 0;
+    let src: i32 = sa_json_stringify(eq, &sh);
+    if src != 0 || sh == 0 { return err_exit(4, STR_PTR("equation 序列化失败"), STR_LEN("equation 序列化失败")); };
+    let ep: ptr = sa_json_buffer_data(sh);
+    let en: u64 = sa_json_buffer_len(sh);
+    let o = OBuf { b: [0u8; 8192], n: 0 };
+    oput_lit(&o, STR_PTR("{\"problem_id\":\""), STR_LEN("{\"problem_id\":\""));
+    oput(&o, pid.p, pid.n);
+    oput_lit(&o, STR_PTR("\",\"items\":[{\"equation\":"), STR_LEN("\",\"items\":[{\"equation\":"));
+    oput(&o, ep, en);
+    oput_lit(&o, STR_PTR("}]}\n"), STR_LEN("}]}\n"));
+    let wrc: i32 = sa_fs_write_file(f_out.p, f_out.n, &o.b[0], o.n);
+    if wrc != 0 { return err_exit(5, STR_PTR("答案文件写入失败"), STR_LEN("答案文件写入失败")); };
+    return 0;
+}
