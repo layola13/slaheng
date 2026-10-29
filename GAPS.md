@@ -117,3 +117,29 @@
   的符号在下游文件报 UndefinedVariable，模块组织须留意。
   ⑧ `sla build-exe --out <file>` 不被接受（error[SA-CLI-014]），
   产物落在 `.sla-cache/sab/<name>-<hash>`。
+
+## grade 线（判分运行时）
+
+- **零 Python 声明（用户 2026-10-29 22:55 新规）**：本线交付物无任何 Python
+  文件、无 Python 运行时依赖；判分器 `grade/src/grade.sla` 与验收器
+  `grade/src/verify.sla` 均为 SLA，`run_grade.sh`/`run_samples.sh` 为
+  POSIX sh 薄编排（无判定逻辑，判定/比对全在 SLA 内）。
+- **balanced 口径为契约级自备实现**：check/ 线 C1 就绪前，配平判定
+  （物种多重集对齐 + 原子/电荷守恒）在 grade 内自备，口径与 INTERFACE 的
+  EquationRecord 对齐；check 线就绪后应切换为调用其判定并删自备实现。
+- **value_eq 单位只做字符串精确比对**：量纲向量（7 维）比对依赖 found/ 的
+  单位→量纲表；落地后切换。现口径下单位字符串不同即 fail（detail 点名）。
+- **canon1: 物种 id 不可解析**：species/ 的 canon 未就绪，grade v0.1 只认
+  原始化学式与 `formula1:` 占位 id；遇 `canon1:` 响亮 fail、不猜测。
+- **value_eq 的 expr 不求值**：expr 仅作标识回显；`Mr(...)` 等求值属
+  check/kb 的范围。现口径下期望值由题面直接以 Quantity 给出。
+- **rubric 只透传不判定**：v0.1 仅校验 rubric 为数组并保留结构；评分要点
+  的 extern 判定（INTERFACE 三层判定之第三层）未实现。
+- **SLA 语言缺口未触发 Zig 降级**：CLI 形态完全由 SLA 承载。实证并已绕行
+  的编译器问题（均与 lang/check 两线登记互证）：① String 形参借入 ABI
+  缺口（sa_plugin_sla POTENTIAL_ISSUES #15）→ 全线 (ptr, len) 对传参；
+  ② 含数组大结构体**链式按值传递**时读写分裂（同一数组两种读法结果
+  不一致，tg/th 探针实证）→ 大结构体只在属主帧以字面量创建、辅助函数
+  一律 `&` 原地修改；③ 字符串字面量不能直接 return 为 String、内部指针
+  内联传 extern 触发 UseAfterMove（须先绑定具名变量），代码中已注记。
+  工具链路径为本机布局（`~/workspace/local-sa/`），换机需改 run_grade.sh。

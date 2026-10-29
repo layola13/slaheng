@@ -1,0 +1,1 @@
+{"assertions":[{"a":"Al2O3","kind":"species_id_eq"},{"equation":{"arrow":"->","lhs":[["Zn",1],["H2SO4",1]],"rhs":[["ZnSO4",1],["H2",1]]},"kind":"balanced"}],"curriculum":"初中","model":{"species":["Al2O3","Zn","H2SO4","ZnSO4","H2"]},"problem_id":"L0-val-004","topic":"化合价与化学式"}

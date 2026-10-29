@@ -1,0 +1,206 @@
+// verify.sla —— grade 样例验收器（衡 grade 线测试工具，SLA 实现）
+//
+// 用法： verify <verdict.json> <expect.json>
+//   verdict.json 为 grade CLI 的 stdout（VerdictReport）；
+//   expect.json 格式：{ problem_id, expect_all_pass: bool,
+//                      expect_pass: [bool...],
+//                      expect_detail_contains?: [string...] }（空串 = 该项不查）
+// 全部符合 -> stdout 打印 "VERIFY OK <problem_id>"、退出 0；
+// 任一不符 -> 打印 "VERIFY FAIL <problem_id>: <原因>"、退出 1；
+// 用法/文件错误退出 2/3。本工具只读两份 JSON 做结构化比对，不参与判定本身。
+
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+
+fn out_lit(p: ptr, n: u64) {
+    sa_print_bytes(p, n);
+}
+
+fn out_bytes(p: ptr, n: u64) {
+    if n > 0 {
+        sa_print_bytes(p, n);
+    };
+}
+
+fn bytes_eq(p1: ptr, n1: u64, p2: ptr, n2: u64) -> bool {
+    if n1 != n2 { return false; };
+    let i: u64 = 0;
+    while i < n1 {
+        if PTR_READ_U8(PTR_BYTE_ADD(p1, i)) != PTR_READ_U8(PTR_BYTE_ADD(p2, i)) {
+            return false;
+        };
+        i = i + 1;
+    }
+    return true;
+}
+
+// hay 是否包含 needle（字节级朴素搜索）。
+fn bytes_contains(hay: ptr, hn: u64, ndl: ptr, nn: u64) -> bool {
+    if nn == 0 { return true; };
+    if nn > hn { return false; };
+    let i: u64 = 0;
+    while i + nn <= hn {
+        if bytes_eq(PTR_BYTE_ADD(hay, i), nn, ndl, nn) {
+            return true;
+        };
+        i = i + 1;
+    }
+    return false;
+}
+
+fn jhas(obj: u64, kp: ptr, kn: u64) -> bool {
+    let tmp: u64 = 0;
+    return sa_json_object_get(obj, kp, kn, &tmp) == 0;
+}
+
+fn jget(obj: u64, kp: ptr, kn: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_object_get(obj, kp, kn, &tmp) != 0 {
+        return 0;
+    };
+    return tmp;
+}
+
+fn jcount(node: u64) -> u64 {
+    let c: u64 = 0;
+    if sa_json_value_count(node, &c) != 0 {
+        return 0;
+    };
+    return c;
+}
+
+fn jidx(arr: u64, i: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_array_get(arr, i, &tmp) != 0 {
+        return 0;
+    };
+    return tmp;
+}
+
+struct JStr { ok: bool, p: ptr, n: u64 }
+
+fn jnode_str(node: u64) -> JStr {
+    let r = JStr { ok: false, p: PTR_NULL(), n: 0 };
+    if node == 0 { return r; };
+    if sa_json_kind(node) != 5 { return r; };
+    r.ok = true;
+    r.p = sa_json_string_ptr(node);
+    r.n = sa_json_string_len(node);
+    return r;
+}
+
+fn jget_str(obj: u64, kp: ptr, kn: u64) -> JStr {
+    return jnode_str(jget(obj, kp, kn));
+}
+
+struct JBool { ok: bool, v: bool }
+
+fn jnode_bool(node: u64) -> JBool {
+    let r = JBool { ok: false, v: false };
+    if node == 0 { return r; };
+    if sa_json_kind(node) != 1 { return r; };
+    let b: u8 = 0;
+    if sa_json_as_bool(node, &b) != 0 { return r; };
+    r.ok = true;
+    r.v = b != 0;
+    return r;
+}
+
+fn jget_bool(obj: u64, kp: ptr, kn: u64) -> JBool {
+    return jnode_bool(jget(obj, kp, kn));
+}
+
+fn read_json_file(p: ptr, n: u64) -> u64 {
+    let h: u64 = 0;
+    let rc: i32 = sa_std_fs_read_to_string(p, n, 16777216, &h);
+    if rc != 0 { return 0; };
+    let dp: ptr = sa_fs_read_buffer_data(h);
+    let dn: u64 = sa_fs_read_buffer_len(h);
+    if dn == 0 { return 0; };
+    return sa_json_parse(dp, dn);
+}
+
+fn fail_with(pid: JStr, mp: ptr, mn: u64) -> i32 {
+    out_lit(STR_PTR("VERIFY FAIL "), STR_LEN("VERIFY FAIL "));
+    if pid.ok { out_bytes(pid.p, pid.n); };
+    out_lit(STR_PTR(": "), STR_LEN(": "));
+    out_bytes(mp, mn);
+    out_lit(STR_PTR("\n"), STR_LEN("\n"));
+    return 1;
+}
+
+fn main() -> i32 {
+    let abuf: u64 = sa_env_args_json();
+    let ap: ptr = sa_env_buffer_data(abuf);
+    let an: u64 = sa_env_buffer_len(abuf);
+    let args: u64 = sa_json_parse(ap, an);
+    if args == 0 { return 2; };
+    if jcount(args) < 3 { return 2; };
+    let p1 = jnode_str(jidx(args, 1));
+    let p2 = jnode_str(jidx(args, 2));
+    if !p1.ok { return 2; };
+    if !p2.ok { return 2; };
+    let verdict: u64 = read_json_file(p1.p, p1.n);
+    if verdict == 0 { return 3; };
+    let expect: u64 = read_json_file(p2.p, p2.n);
+    if expect == 0 { return 3; };
+    let pid = jget_str(verdict, STR_PTR("problem_id"), STR_LEN("problem_id"));
+    let epid = jget_str(expect, STR_PTR("problem_id"), STR_LEN("problem_id"));
+    if !pid.ok { return fail_with(pid, STR_PTR("verdict 缺少 problem_id"), STR_LEN("verdict 缺少 problem_id")); };
+    if !epid.ok { return fail_with(pid, STR_PTR("expect 缺少 problem_id"), STR_LEN("expect 缺少 problem_id")); };
+    if !bytes_eq(pid.p, pid.n, epid.p, epid.n) { return fail_with(pid, STR_PTR("problem_id 与 expect 不一致"), STR_LEN("problem_id 与 expect 不一致")); };
+    let results: u64 = jget(verdict, STR_PTR("results"), STR_LEN("results"));
+    if results == 0 { return fail_with(pid, STR_PTR("verdict 缺少 results"), STR_LEN("verdict 缺少 results")); };
+    if sa_json_kind(results) != 6 { return fail_with(pid, STR_PTR("results 不是数组"), STR_LEN("results 不是数组")); };
+    let epass: u64 = jget(expect, STR_PTR("expect_pass"), STR_LEN("expect_pass"));
+    if epass == 0 { return fail_with(pid, STR_PTR("expect 缺少 expect_pass"), STR_LEN("expect 缺少 expect_pass")); };
+    if sa_json_kind(epass) != 6 { return fail_with(pid, STR_PTR("expect_pass 不是数组"), STR_LEN("expect_pass 不是数组")); };
+    let rc_cnt: u64 = jcount(results);
+    if rc_cnt != jcount(epass) { return fail_with(pid, STR_PTR("results 条数与 expect_pass 不一致"), STR_LEN("results 条数与 expect_pass 不一致")); };
+    let edet: u64 = jget(expect, STR_PTR("expect_detail_contains"), STR_LEN("expect_detail_contains"));
+    let i: u64 = 0;
+    while i < rc_cnt {
+        let rnode: u64 = jidx(results, i);
+        let enode: u64 = jidx(epass, i);
+        let want = jnode_bool(enode);
+        if !want.ok { return fail_with(pid, STR_PTR("expect_pass 含非布尔项"), STR_LEN("expect_pass 含非布尔项")); };
+        let got = jget_bool(rnode, STR_PTR("pass"), STR_LEN("pass"));
+        if !got.ok { return fail_with(pid, STR_PTR("results 某条缺少 pass"), STR_LEN("results 某条缺少 pass")); };
+        if got.v != want.v { return fail_with(pid, STR_PTR("某条 pass 与预期不符"), STR_LEN("某条 pass 与预期不符")); };
+        let idx_node: u64 = jget(rnode, STR_PTR("assertion_index"), STR_LEN("assertion_index"));
+        let idx_v: i64 = 0;
+        if sa_json_as_i64(idx_node, &idx_v) != 0 { return fail_with(pid, STR_PTR("assertion_index 缺失"), STR_LEN("assertion_index 缺失")); };
+        if idx_v != i as i64 { return fail_with(pid, STR_PTR("assertion_index 与顺序不符"), STR_LEN("assertion_index 与顺序不符")); };
+        let prov: u64 = jget(rnode, STR_PTR("provenance"), STR_LEN("provenance"));
+        if prov == 0 { return fail_with(pid, STR_PTR("某条缺少 provenance"), STR_LEN("某条缺少 provenance")); };
+        if sa_json_kind(prov) != 6 { return fail_with(pid, STR_PTR("provenance 不是数组"), STR_LEN("provenance 不是数组")); };
+        if edet != 0 {
+            if sa_json_kind(edet) == 6 {
+                if i < jcount(edet) {
+                    let needle = jnode_str(jidx(edet, i));
+                    if needle.ok {
+                        if needle.n > 0 {
+                            let det = jget_str(rnode, STR_PTR("detail"), STR_LEN("detail"));
+                            if !det.ok { return fail_with(pid, STR_PTR("某条缺少 detail"), STR_LEN("某条缺少 detail")); };
+                            if !bytes_contains(det.p, det.n, needle.p, needle.n) { return fail_with(pid, STR_PTR("某条 detail 未包含期望片段"), STR_LEN("某条 detail 未包含期望片段")); };
+                        };
+                    };
+                };
+            };
+        };
+        i = i + 1;
+    }
+    let allp = jget_bool(verdict, STR_PTR("all_pass"), STR_LEN("all_pass"));
+    let eallp = jget_bool(expect, STR_PTR("expect_all_pass"), STR_LEN("expect_all_pass"));
+    if !allp.ok { return fail_with(pid, STR_PTR("verdict 缺少 all_pass"), STR_LEN("verdict 缺少 all_pass")); };
+    if !eallp.ok { return fail_with(pid, STR_PTR("expect 缺少 expect_all_pass"), STR_LEN("expect 缺少 expect_all_pass")); };
+    if allp.v != eallp.v { return fail_with(pid, STR_PTR("all_pass 与预期不符"), STR_LEN("all_pass 与预期不符")); };
+    out_lit(STR_PTR("VERIFY OK "), STR_LEN("VERIFY OK "));
+    out_bytes(pid.p, pid.n);
+    out_lit(STR_PTR("\n"), STR_LEN("\n"));
+    return 0;
+}

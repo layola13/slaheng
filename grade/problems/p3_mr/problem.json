@@ -1,0 +1,1 @@
+{"assertions":[{"expect":{"unit":"1","value":"44"},"expr":"Mr(CO2)","kind":"value_eq","tol":"0"}],"curriculum":"初中","model":{"species":["CO2"]},"problem_id":"L0-mr-003","topic":"相对分子质量"}
