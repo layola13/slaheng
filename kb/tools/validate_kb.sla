@@ -1,0 +1,1182 @@
+// kb/tools/validate_kb.sla —— 衡 · Heng kb 知识底座校验器（SLA 版，替代原 Python 版）
+//
+// 校验口径与原 Python 校验器逐项一致（同检查、同报告、同 ALL PASS 判定）：
+//   1. JSON 可解析、顶层为条目数组（解析器为同目录 json.sla，自研 SLA 实现）
+//   2. 条目 schema：id/kind/payload/provenance/curriculum/topic 齐全；
+//      provenance ∈ derived | measured:<ref> | assumed | extern:<name>；
+//      curriculum ∈ 初中 | 高中
+//   3. id 全局唯一
+//   4. species：独立化学式解析器重算 composition 并与条目声明逐项比对；
+//      id 必须等于 "formula1:<formula>@<charge>"；元素符号合法；charge 为整数
+//   5. equation：所引 species id 必须存在（引用完整性）；元素守恒；
+//      电荷守恒；arrow ∈ {"->", "<=>"}；系数为正整数
+//   6. fact（原子量表）：mass_textbook 与 mass_precise 均为正数，
+//      且 |textbook - precise| <= 0.6（精确十进制比较，零浮点）
+// 用法：validate_kb [kb根目录]（缺省 "kb"，按当前工作目录相对）
+// 退出码 0 = 全过（报告含 RESULT ALL PASS），1 = 有失败。
+// 报告同时写入 <kb根目录>/validation_report.txt 并打印到 stdout。
+
+@import "json.sla"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+
+// ---------- 输出累积 ----------
+struct OutB {
+    bytes: [u8; 65536],
+    len: u64,
+}
+
+fn oput(o: &OutB, c: u8) {
+    if o.len >= 65536 { panic(9501); };
+    o.bytes[o.len] = c;
+    o.len = o.len + 1;
+}
+
+fn oput_span(o: &OutB, p: ptr, off: u64, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        let b: u8 = 0;
+        PTR_BYTE_AT(b, p, off + i);
+        oput(o, b);
+        i = i + 1;
+    }
+}
+
+// 注意（ABI 纪律，grade 线已确认）：字符串字面量不得作为 String/ptr 形参跨函数传递，
+// 必须在字面量所在函数内以 STR_PTR/STR_LEN 原地提取为 (ptr, len) 后再传递。
+// 故本文件所有 *_lit 助手一律收 (tp: ptr, tn: u64)，调用点写 STR_PTR(".."), STR_LEN("..")。
+fn oput_lit(o: &OutB, tp: ptr, tn: u64) {
+    oput_span(o, tp, 0, tn);
+}
+
+fn oput_pool(o: &OutB, doc: &JsonDoc, off: u64, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        oput(o, j_pool_byte(doc, off + i));
+        i = i + 1;
+    }
+}
+
+fn oput_u64(o: &OutB, v0: u64) {
+    let tmp = [0u8; 20];
+    let tn: u64 = 0;
+    let v: u64 = v0;
+    if v == 0 { oput(o, 48); return; };
+    while v > 0 {
+        tmp[tn] = (v % 10) as u8 + 48;
+        tn = tn + 1;
+        v = v / 10;
+    }
+    let k: u64 = 0;
+    while k < tn {
+        oput(o, tmp[tn - 1 - k]);
+        k = k + 1;
+    }
+}
+
+fn oput_i64(o: &OutB, v: i64) {
+    if v < 0 {
+        oput(o, 45);
+        oput_u64(o, (0 - v) as u64);
+    } else {
+        oput_u64(o, v as u64);
+    };
+}
+
+// ---------- 校验状态 ----------
+struct Val {
+    fails: i64,
+    sp_bad: i64,
+    dup_bad: bool,
+}
+
+fn rp_pass(o: &OutB) { oput_span(o, STR_PTR("PASS  "), 0, STR_LEN("PASS  ")); }
+fn rp_fail(o: &OutB, v: &Val) {
+    v.fails = v.fails + 1;
+    oput_lit(o, STR_PTR("FAIL  "), STR_LEN("FAIL  "));
+}
+fn rp_info(o: &OutB) { oput_span(o, STR_PTR("INFO  "), 0, STR_LEN("INFO  ")); }
+fn rp_nl(o: &OutB) { oput(o, 10); }
+
+// ---------- 路径/短串缓冲 ----------
+struct StrB {
+    bytes: [u8; 1024],
+    len: u64,
+}
+
+fn sputc(s: &StrB, c: u8) {
+    if s.len >= 1024 { panic(9502); };
+    s.bytes[s.len] = c;
+    s.len = s.len + 1;
+}
+
+fn sput_span(s: &StrB, p: ptr, off: u64, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        let b: u8 = 0;
+        PTR_BYTE_AT(b, p, off + i);
+        sputc(s, b);
+        i = i + 1;
+    }
+}
+
+fn sput_lit(s: &StrB, tp: ptr, tn: u64) {
+    sput_span(s, tp, 0, tn);
+}
+
+fn sput_strb(s: &StrB, src: &StrB) {
+    let i: u64 = 0;
+    while i < src.len {
+        sputc(s, src.bytes[i]);
+        i = i + 1;
+    }
+}
+
+fn sput_pool(s: &StrB, doc: &JsonDoc, off: u64, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        sputc(s, j_pool_byte(doc, off + i));
+        i = i + 1;
+    }
+}
+
+fn sput_i64(s: &StrB, v: i64) {
+    let tmp = [0u8; 20];
+    let tn: u64 = 0;
+    let mag: u64 = 0;
+    if v < 0 {
+        sputc(s, 45);
+        mag = (0 - v) as u64;
+    } else {
+        mag = v as u64;
+    };
+    if mag == 0 { sputc(s, 48); return; };
+    while mag > 0 {
+        tmp[tn] = (mag % 10) as u8 + 48;
+        tn = tn + 1;
+        mag = mag / 10;
+    }
+    let k: u64 = 0;
+    while k < tn {
+        sputc(s, tmp[tn - 1 - k]);
+        k = k + 1;
+    }
+}
+
+fn strb_eq_span(s: &StrB, doc: &JsonDoc, off: u64, n: u64) -> bool {
+    if s.len != n { return false; };
+    let i: u64 = 0;
+    while i < n {
+        if s.bytes[i] != j_pool_byte(doc, off + i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// ---------- 跨文件状态 ----------
+struct Ctx {
+    entries: [i64; 512],
+    n_entries: u64,
+    sp_off: [u64; 256],
+    sp_len: [u64; 256],
+    sp_node: [i64; 256],
+    sp_n: u64,
+    cb_coff: [u64; 64],
+    cb_clen: [u64; 64],
+    cb_koff: [u64; 64],
+    cb_klen: [u64; 64],
+    cb_cnt: [i64; 64],
+    cb_n: u64,
+}
+
+fn ctx_new() -> Ctx {
+    return Ctx {
+        entries: [0i64; 512], n_entries: 0,
+        sp_off: [0u64; 256], sp_len: [0u64; 256], sp_node: [0i64; 256], sp_n: 0,
+        cb_coff: [0u64; 64], cb_clen: [0u64; 64], cb_koff: [0u64; 64], cb_klen: [0u64; 64],
+        cb_cnt: [0i64; 64], cb_n: 0,
+    };
+}
+
+// ---------- 字符串节点跨度 ----------
+struct SRes { ok: bool, off: u64, len: u64 }
+
+fn str_span(doc: &JsonDoc, node: i64) -> SRes {
+    let r = SRes { ok: false, off: 0, len: 0 };
+    if j_kind(doc, node) != jk_str() { return r; };
+    r.ok = true;
+    r.off = doc.soff[node as u64];
+    r.len = doc.slen[node as u64];
+    return r;
+}
+
+// 池内两跨度逐字节相等？
+fn pool_eq(doc: &JsonDoc, o1: u64, l1: u64, o2: u64, l2: u64) -> bool {
+    if l1 != l2 { return false; };
+    let i: u64 = 0;
+    while i < l1 {
+        if j_pool_byte(doc, o1 + i) != j_pool_byte(doc, o2 + i) { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// 池跨度与 (ptr, len) 裸字节相等？
+fn span_eq_p(doc: &JsonDoc, off: u64, len: u64, tp: ptr, tn: u64) -> bool {
+    return j_span_eq(doc, off, len, tp, tn);
+}
+
+// 池跨度以 (ptr, len) 裸字节为前缀？
+fn span_starts_p(doc: &JsonDoc, off: u64, len: u64, tp: ptr, tn: u64) -> bool {
+    if len < tn { return false; };
+    return j_span_eq(doc, off, tn, tp, tn);
+}
+
+fn prov_ok(doc: &JsonDoc, off: u64, len: u64) -> bool {
+    if span_eq_p(doc, off, len, STR_PTR("derived"), STR_LEN("derived")) { return true; };
+    if span_eq_p(doc, off, len, STR_PTR("assumed"), STR_LEN("assumed")) { return true; };
+    if span_starts_p(doc, off, len, STR_PTR("measured:"), STR_LEN("measured:")) { return true; };
+    if span_starts_p(doc, off, len, STR_PTR("extern:"), STR_LEN("extern:")) { return true; };
+    return false;
+}
+
+// 条目 id 的池跨度（非字符串 id 返回 ok=false）；消息用。
+fn entry_id_span(doc: &JsonDoc, entry: i64) -> SRes {
+    return str_span(doc, j_obj_get(doc, entry, STR_PTR("id"), STR_LEN("id")));
+}
+
+fn oput_id_or_q(o: &OutB, doc: &JsonDoc, entry: i64) {
+    let s = entry_id_span(doc, entry);
+    if s.ok {
+        oput_pool(o, doc, s.off, s.len);
+    } else {
+        oput_lit(o, STR_PTR("?"), STR_LEN("?"));
+    };
+}
+
+// ---------- 元素表（与原校验器 ELEMENTS 集合逐字一致；PTR/LEN 原地提取，grade 线惯例） ----------
+fn elements_ptr() -> ptr {
+    return STR_PTR("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Ra Th Pa U");
+}
+
+fn elements_len() -> u64 {
+    return STR_LEN("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Ra Th Pa U");
+}
+
+fn elem_known(doc: &JsonDoc, off: u64, len: u64) -> bool {
+    let tp: ptr = elements_ptr();
+    let tn: u64 = elements_len();
+    let i: u64 = 0;
+    while i < tn {
+        let b0: u8 = 0;
+        PTR_BYTE_AT(b0, tp, i);
+        if b0 == 32 {
+            i = i + 1;
+        } else {
+            let start: u64 = i;
+            let scanning: bool = true;
+            while scanning {
+                if i < tn {
+                    let bb: u8 = 0;
+                    PTR_BYTE_AT(bb, tp, i);
+                    if bb != 32 { i = i + 1; } else { scanning = false; };
+                } else { scanning = false; };
+            }
+            if i - start == len {
+                if j_span_eq(doc, off, len, PTR_BYTE_ADD(tp, start), len) { return true; };
+            };
+        };
+    }
+    return false;
+}
+
+// ---------- 元素计数映射（化学式解析/守恒累加共用） ----------
+struct FMap {
+    off: [u64; 72],
+    len: [u64; 72],
+    cnt: [i64; 72],
+    n: u64,
+}
+
+fn fmap_new() -> FMap {
+    return FMap { off: [0u64; 72], len: [0u64; 72], cnt: [0i64; 72], n: 0 };
+}
+
+// 纪律：FMap 含三组 [T; 72] 数组（约 1.7 KB），**禁止按值传参/返回**——
+// 大结构体按值跨函数复制在本工具链实测会丢字段（probe13 实证：cnt[1] 丢失、
+// 第三个键 find 不到）。一律 &FMap 原地变更；解析结果用小结构体 PRes 传递。
+fn fmap_find(doc: &JsonDoc, m: &FMap, off: u64, len: u64) -> i64 {
+    let i: u64 = 0;
+    while i < m.n {
+        if pool_eq(doc, m.off[i], m.len[i], off, len) { return i as i64; };
+        i = i + 1;
+    }
+    return -1;
+}
+
+fn fmap_add(doc: &JsonDoc, m: &FMap, off: u64, len: u64, delta: i64) {
+    let idx: i64 = fmap_find(doc, m, off, len);
+    if idx >= 0 {
+        m.cnt[idx as u64] = m.cnt[idx as u64] + delta;
+        return;
+    };
+    if m.n >= 72 { panic(9503); };
+    m.off[m.n] = off;
+    m.len[m.n] = len;
+    m.cnt[m.n] = delta;
+    m.n = m.n + 1;
+}
+
+fn fmap_merge(doc: &JsonDoc, dst: &FMap, src: &FMap, mult: i64) {
+    let i: u64 = 0;
+    while i < src.n {
+        fmap_add(doc, dst, src.off[i], src.len[i], src.cnt[i] * mult);
+        i = i + 1;
+    }
+}
+
+// ---------- 化学式解析（独立实现，与原校验器 parse_formula/parse_group 同语义） ----------
+struct DigRes { ok: bool, v: i64, pos: u64, seen: bool }
+
+fn read_digits(doc: &JsonDoc, pos: u64, end: u64) -> DigRes {
+    let r = DigRes { ok: true, v: 0, pos: pos, seen: false };
+    let going: bool = true;
+    while going {
+        if r.pos < end {
+            let b: u8 = j_pool_byte(doc, r.pos);
+            if b >= 48 && b <= 57 {
+                r.v = r.v * 10 + (b - 48) as i64;
+                if r.v > 100000000 { r.ok = false; return r; };
+                r.seen = true;
+                r.pos = r.pos + 1;
+            } else { going = false; };
+        } else { going = false; };
+    }
+    return r;
+}
+
+struct PRes { ok: bool, pos: u64 }
+
+// 解析 [start, end) 的一个序列累加进 map：在 ')' 或 ']' 或段尾停下（返回 pos 指其后）。
+fn parse_group(doc: &JsonDoc, start: u64, end: u64, map: &FMap) -> PRes {
+    let i: u64 = start;
+    let going: bool = true;
+    while going {
+        if i >= end {
+            going = false;
+        } else {
+            let b: u8 = j_pool_byte(doc, i);
+            if b == 41 || b == 93 {
+                return PRes { ok: true, pos: i + 1 };
+            };
+            if b == 40 || b == 91 {
+                let sub = fmap_new();
+                let sr = parse_group(doc, i + 1, end, &sub);
+                if !sr.ok { return PRes { ok: false, pos: i }; };
+                let dr = read_digits(doc, sr.pos, end);
+                if !dr.ok { return PRes { ok: false, pos: i }; };
+                let mult: i64 = 1;
+                if dr.seen { mult = dr.v; };
+                fmap_merge(doc, map, &sub, mult);
+                i = dr.pos;
+            } else {
+                if b >= 65 && b <= 90 {
+                    let j: u64 = i + 1;
+                    if j < end {
+                        let b2: u8 = j_pool_byte(doc, j);
+                        if b2 >= 97 && b2 <= 122 { j = j + 1; };
+                    };
+                    if !elem_known(doc, i, j - i) {
+                        return PRes { ok: false, pos: i };
+                    };
+                    let dr2 = read_digits(doc, j, end);
+                    if !dr2.ok { return PRes { ok: false, pos: i }; };
+                    let cnt: i64 = 1;
+                    if dr2.seen { cnt = dr2.v; };
+                    fmap_add(doc, map, i, j - i, cnt);
+                    i = dr2.pos;
+                } else {
+                    return PRes { ok: false, pos: i };
+                };
+            };
+        };
+    }
+    return PRes { ok: true, pos: i };
+}
+
+// 化学式 -> composition：按 '·'（U+00B7，字节 C2 B7）分段，段首可带系数。
+// 结果累加进 total（&FMap 原地变更）；返回是否解析成功。
+fn parse_formula(doc: &JsonDoc, foff: u64, flen: u64, total: &FMap) -> bool {
+    let fend: u64 = foff + flen;
+    let seg: u64 = foff;
+    let done: bool = false;
+    while !done {
+        // 找段界
+        let j: u64 = seg;
+        let seg_end: u64 = fend;
+        let scanning: bool = true;
+        while scanning {
+            if j >= fend {
+                scanning = false;
+            } else {
+                if j_pool_byte(doc, j) == 194 {
+                    if j + 1 < fend {
+                        if j_pool_byte(doc, j + 1) == 183 {
+                            seg_end = j;
+                            scanning = false;
+                        } else { j = j + 1; };
+                    } else { j = j + 1; };
+                } else { j = j + 1; };
+            };
+        }
+        // 段首系数
+        let dr0 = read_digits(doc, seg, seg_end);
+        let mult: i64 = 1;
+        let body: u64 = seg;
+        if dr0.seen {
+            if dr0.pos < seg_end {
+                if !dr0.ok { return false; };
+                mult = dr0.v;
+                body = dr0.pos;
+            };
+        };
+        let sub = fmap_new();
+        let sr = parse_group(doc, body, seg_end, &sub);
+        if !sr.ok { return false; };
+        if sr.pos != seg_end { return false; };
+        fmap_merge(doc, total, &sub, mult);
+        if seg_end >= fend {
+            done = true;
+        } else {
+            seg = seg_end + 2;
+        };
+    }
+    return true;
+}
+
+// ---------- 十进制小工具 ----------
+fn pow10i(e: i64) -> i64 {
+    let r: i64 = 1;
+    let k: i64 = 0;
+    while k < e {
+        r = r * 10;
+        k = k + 1;
+    }
+    return r;
+}
+
+// |a - b| > 3/5 ？（a、b 为精确十进制；0.6 = 3/5，整数交叉相乘，零浮点）
+fn dec_diff_gt_0_6(a: JDec, b: JDec) -> bool {
+    let m1: i64 = a.mant;
+    let s1: i64 = a.scale;
+    let m2: i64 = b.mant;
+    let s2: i64 = b.scale;
+    if s1 < 0 { m1 = m1 * pow10i(0 - s1); s1 = 0; };
+    if s2 < 0 { m2 = m2 * pow10i(0 - s2); s2 = 0; };
+    let s: i64 = s1;
+    if s2 > s { s = s2; };
+    let x: i64 = m1 * pow10i(s - s1);
+    let y: i64 = m2 * pow10i(s - s2);
+    let diff: i64 = x - y;
+    if diff < 0 { diff = 0 - diff; };
+    return 5 * diff > 3 * pow10i(s);
+}
+
+// 数值的截断整数值（朝向零）；非数值返回 ok=false。
+fn dec_trunc_int(doc: &JsonDoc, node: i64) -> JInt {
+    let r = JInt { ok: false, v: 0 };
+    let d = j_dec(doc, node);
+    if !d.ok { return r; };
+    if d.scale <= 0 {
+        if 0 - d.scale > 15 { return r; };
+        r.ok = true;
+        r.v = d.mant * pow10i(0 - d.scale);
+        return r;
+    };
+    if d.scale > 15 { return r; };
+    r.ok = true;
+    r.v = d.mant / pow10i(d.scale);
+    return r;
+}
+
+// ---------- 数据文件名表（PTR/LEN 原地提取） ----------
+fn data_file_ptr(idx: u64) -> ptr {
+    if idx == 0 { return STR_PTR("species_junior.json"); };
+    if idx == 1 { return STR_PTR("equations_junior.json"); };
+    if idx == 2 { return STR_PTR("species_senior.json"); };
+    if idx == 3 { return STR_PTR("equations_senior.json"); };
+    return STR_PTR("atomic_masses.json");
+}
+
+fn data_file_len(idx: u64) -> u64 {
+    if idx == 0 { return STR_LEN("species_junior.json"); };
+    if idx == 1 { return STR_LEN("equations_junior.json"); };
+    if idx == 2 { return STR_LEN("species_senior.json"); };
+    if idx == 3 { return STR_LEN("equations_senior.json"); };
+    return STR_LEN("atomic_masses.json");
+}
+
+// ---------- 主流程 ----------
+fn main() -> i32 {
+    let out = OutB { bytes: [0u8; 65536], len: 0 };
+    let v = Val { fails: 0, sp_bad: 0, dup_bad: false };
+    let ctx = ctx_new();
+
+    // ---- kb 根目录：argv[1]，缺省 "kb"（用自研 json.sla 解析 argv JSON） ----
+    let rootb = StrB { bytes: [0u8; 1024], len: 0 };
+    sput_lit(&rootb, STR_PTR("kb"), STR_LEN("kb"));
+    let abuf: u64 = sa_env_args_json();
+    if abuf != 0 {
+        let adoc = json_doc_new();
+        let aptr: ptr = sa_env_buffer_data(abuf);
+        let alen: u64 = sa_env_buffer_len(abuf);
+        let aroot: i64 = json_parse(&adoc, aptr, alen);
+        if aroot >= 0 {
+            if j_arr_len(&adoc, aroot) >= 2 {
+                let a1 = str_span(&adoc, j_arr_at(&adoc, aroot, 1));
+                if a1.ok {
+                    rootb.len = 0;
+                    sput_pool(&rootb, &adoc, a1.off, a1.len);
+                };
+            };
+        };
+        sa_env_buffer_free(abuf);
+    };
+    let doc = json_doc_new();
+
+    // ---- 1. 逐文件加载 ----
+    let fi: u64 = 0;
+    while fi < 5 {
+        let fname_p: ptr = data_file_ptr(fi);
+        let fname_n: u64 = data_file_len(fi);
+        let path = StrB { bytes: [0u8; 1024], len: 0 };
+        sput_strb(&path, &rootb);
+        sput_lit(&path, STR_PTR("/data/"), STR_LEN("/data/"));
+        sput_span(&path, fname_p, 0, fname_n);
+        let fh: u64 = 0;
+        let rc: i32 = sa_std_fs_read_to_string(&path.bytes, path.len, 4194304, &fh);
+        if rc != 0 {
+            rp_fail(&out, &v);
+            oput_lit(&out, fname_p, fname_n);
+            oput_lit(&out, STR_PTR(" 解析失败: 读取失败"), STR_LEN(" 解析失败: 读取失败"));
+            rp_nl(&out);
+        };
+        if rc == 0 {
+            let fp: ptr = sa_fs_read_buffer_data(fh);
+            let fl: u64 = sa_fs_read_buffer_len(fh);
+            let root: i64 = json_parse(&doc, fp, fl);
+            if root < 0 {
+                rp_fail(&out, &v);
+                oput_lit(&out, fname_p, fname_n);
+                oput_lit(&out, STR_PTR(" 解析失败: JSON 语法错误"), STR_LEN(" 解析失败: JSON 语法错误"));
+                rp_nl(&out);
+            } else {
+                if j_kind(&doc, root) != jk_arr() {
+                    rp_fail(&out, &v);
+                    oput_lit(&out, fname_p, fname_n);
+                    oput_lit(&out, STR_PTR(" 解析失败: 顶层非数组"), STR_LEN(" 解析失败: 顶层非数组"));
+                    rp_nl(&out);
+                } else {
+                    let cnt: u64 = j_arr_len(&doc, root);
+                    let ei: u64 = 0;
+                    while ei < cnt {
+                        if ctx.n_entries >= 512 { panic(9504); };
+                        ctx.entries[ctx.n_entries] = j_arr_at(&doc, root, ei);
+                        ctx.n_entries = ctx.n_entries + 1;
+                        ei = ei + 1;
+                    }
+                    rp_pass(&out);
+                    oput_lit(&out, fname_p, fname_n);
+                    oput_lit(&out, STR_PTR(" 解析成功，"), STR_LEN(" 解析成功，"));
+                    oput_u64(&out, cnt);
+                    oput_lit(&out, STR_PTR(" 条"), STR_LEN(" 条"));
+                    rp_nl(&out);
+                };
+            };
+            sa_fs_read_buffer_free(fh);
+        };
+        fi = fi + 1;
+    }
+
+    // ---- 2. schema + provenance + curriculum + 计数 ----
+    let i: u64 = 0;
+    while i < ctx.n_entries {
+        let e: i64 = ctx.entries[i];
+        if j_kind(&doc, e) != jk_obj() {
+            rp_fail(&out, &v);
+            oput_lit(&out, STR_PTR("条目非对象（应为 JSON 对象）"), STR_LEN("条目非对象（应为 JSON 对象）"));
+            rp_nl(&out);
+        } else {
+            // 必备字段（逐个展开检查）
+            if !jhas(&doc, e, STR_PTR("id"), STR_LEN("id")) { schema_missing(&out, &v, &doc, e, STR_PTR("id"), STR_LEN("id")); };
+            if !jhas(&doc, e, STR_PTR("kind"), STR_LEN("kind")) { schema_missing(&out, &v, &doc, e, STR_PTR("kind"), STR_LEN("kind")); };
+            if !jhas(&doc, e, STR_PTR("payload"), STR_LEN("payload")) { schema_missing(&out, &v, &doc, e, STR_PTR("payload"), STR_LEN("payload")); };
+            if !jhas(&doc, e, STR_PTR("provenance"), STR_LEN("provenance")) { schema_missing(&out, &v, &doc, e, STR_PTR("provenance"), STR_LEN("provenance")); };
+            if !jhas(&doc, e, STR_PTR("curriculum"), STR_LEN("curriculum")) { schema_missing(&out, &v, &doc, e, STR_PTR("curriculum"), STR_LEN("curriculum")); };
+            if !jhas(&doc, e, STR_PTR("topic"), STR_LEN("topic")) { schema_missing(&out, &v, &doc, e, STR_PTR("topic"), STR_LEN("topic")); };
+            let prov = str_span(&doc, j_obj_get(&doc, e, STR_PTR("provenance"), STR_LEN("provenance")));
+            if !prov.ok {
+                rp_fail(&out, &v);
+                oput_lit(&out, STR_PTR("条目 "), STR_LEN("条目 "));
+                oput_id_or_q(&out, &doc, e);
+                oput_lit(&out, STR_PTR(" provenance 格式非法"), STR_LEN(" provenance 格式非法"));
+                rp_nl(&out);
+            } else {
+                if !prov_ok(&doc, prov.off, prov.len) {
+                    rp_fail(&out, &v);
+                    oput_lit(&out, STR_PTR("条目 "), STR_LEN("条目 "));
+                    oput_id_or_q(&out, &doc, e);
+                    oput_lit(&out, STR_PTR(" provenance 格式非法: "), STR_LEN(" provenance 格式非法: "));
+                    oput_pool(&out, &doc, prov.off, prov.len);
+                    rp_nl(&out);
+                };
+            };
+            let curr = str_span(&doc, j_obj_get(&doc, e, STR_PTR("curriculum"), STR_LEN("curriculum")));
+            let curr_ok: bool = false;
+            if curr.ok {
+                if span_eq_p(&doc, curr.off, curr.len, STR_PTR("初中"), STR_LEN("初中")) { curr_ok = true; };
+                if span_eq_p(&doc, curr.off, curr.len, STR_PTR("高中"), STR_LEN("高中")) { curr_ok = true; };
+            };
+            if !curr_ok {
+                rp_fail(&out, &v);
+                oput_lit(&out, STR_PTR("条目 "), STR_LEN("条目 "));
+                oput_id_or_q(&out, &doc, e);
+                oput_lit(&out, STR_PTR(" curriculum 非法"), STR_LEN(" curriculum 非法"));
+                rp_nl(&out);
+            };
+        };
+        // 计数（curriculum × kind）
+        combo_add(&doc, &ctx, e);
+        i = i + 1;
+    }
+
+    // ---- 3. id 全局唯一 ----
+    let a: u64 = 0;
+    while a < ctx.n_entries {
+        let sa_ = entry_id_span(&doc, ctx.entries[a]);
+        if sa_.ok {
+            let cnt: i64 = 0;
+            let first: bool = true;
+            let b: u64 = 0;
+            while b < ctx.n_entries {
+                let sb = entry_id_span(&doc, ctx.entries[b]);
+                if sb.ok {
+                    if pool_eq(&doc, sa_.off, sa_.len, sb.off, sb.len) {
+                        cnt = cnt + 1;
+                        if b < a { first = false; };
+                    };
+                };
+                b = b + 1;
+            }
+            if cnt > 1 {
+                if first {
+                    v.dup_bad = true;
+                    rp_fail(&out, &v);
+                    oput_lit(&out, STR_PTR("id 重复 "), STR_LEN("id 重复 "));
+                    oput_i64(&out, cnt);
+                    oput_lit(&out, STR_PTR(" 次: "), STR_LEN(" 次: "));
+                    oput_pool(&out, &doc, sa_.off, sa_.len);
+                    rp_nl(&out);
+                };
+            };
+        };
+        a = a + 1;
+    }
+    if !v.dup_bad {
+        rp_pass(&out);
+        oput_lit(&out, STR_PTR("全部 id 全局唯一（"), STR_LEN("全部 id 全局唯一（"));
+        oput_u64(&out, ctx.n_entries);
+        oput_lit(&out, STR_PTR(" 条）"), STR_LEN(" 条）"));
+        rp_nl(&out);
+    };
+
+    // ---- 4/6. species 与 fact 逐条验 ----
+    let s: u64 = 0;
+    while s < ctx.n_entries {
+        let e: i64 = ctx.entries[s];
+        let kind = str_span(&doc, j_obj_get(&doc, e, STR_PTR("kind"), STR_LEN("kind")));
+        if kind.ok {
+            if span_eq_p(&doc, kind.off, kind.len, STR_PTR("species"), STR_LEN("species")) {
+                check_species(&out, &v, &doc, &ctx, e);
+            } else {
+                if span_eq_p(&doc, kind.off, kind.len, STR_PTR("fact"), STR_LEN("fact")) {
+                    check_fact(&out, &v, &doc, e);
+                } else {
+                    if span_eq_p(&doc, kind.off, kind.len, STR_PTR("equation"), STR_LEN("equation")) {
+                        // 方程式在下方统一验
+                    } else {
+                        rp_fail(&out, &v);
+                        oput_lit(&out, STR_PTR("条目 "), STR_LEN("条目 "));
+                        oput_id_or_q(&out, &doc, e);
+                        oput_lit(&out, STR_PTR(" kind 非法: "), STR_LEN(" kind 非法: "));
+                        oput_pool(&out, &doc, kind.off, kind.len);
+                        rp_nl(&out);
+                    };
+                };
+            };
+        };
+        s = s + 1;
+    }
+    rp_info(&out);
+    oput_lit(&out, STR_PTR("species composition/id 验算完成，失败 "), STR_LEN("species composition/id 验算完成，失败 "));
+    oput_i64(&out, v.sp_bad);
+    oput_lit(&out, STR_PTR(" 条"), STR_LEN(" 条"));
+    rp_nl(&out);
+
+    // ---- 5. 方程式：引用完整性 + 元素守恒 + 电荷守恒 ----
+    let eq_total: u64 = 0;
+    let eq_bad: i64 = 0;
+    let q: u64 = 0;
+    while q < ctx.n_entries {
+        let e: i64 = ctx.entries[q];
+        let kind = str_span(&doc, j_obj_get(&doc, e, STR_PTR("kind"), STR_LEN("kind")));
+        if kind.ok {
+            if span_eq_p(&doc, kind.off, kind.len, STR_PTR("equation"), STR_LEN("equation")) {
+                eq_total = eq_total + 1;
+                if !check_equation(&out, &v, &doc, &ctx, e) {
+                    eq_bad = eq_bad + 1;
+                };
+            };
+        };
+        q = q + 1;
+    }
+    if eq_bad == 0 {
+        rp_pass(&out);
+        oput_lit(&out, STR_PTR("全部 "), STR_LEN("全部 "));
+        oput_u64(&out, eq_total);
+        oput_lit(&out, STR_PTR(" 条方程式：引用完整、元素守恒、电荷守恒"), STR_LEN(" 条方程式：引用完整、元素守恒、电荷守恒"));
+        rp_nl(&out);
+    };
+
+    // ---- 计数明细 ----
+    rp_info(&out);
+    oput_lit(&out, STR_PTR("条目计数（curriculum × kind）:"), STR_LEN("条目计数（curriculum × kind）:"));
+    rp_nl(&out);
+    combo_sort(&doc, &ctx);
+    let ci: u64 = 0;
+    while ci < ctx.cb_n {
+        oput_lit(&out, STR_PTR("INFO    "), STR_LEN("INFO    "));
+        oput_pool(&out, &doc, ctx.cb_coff[ci], ctx.cb_clen[ci]);
+        oput_lit(&out, STR_PTR(" "), STR_LEN(" "));
+        oput_pool(&out, &doc, ctx.cb_koff[ci], ctx.cb_klen[ci]);
+        oput_lit(&out, STR_PTR(": "), STR_LEN(": "));
+        oput_i64(&out, ctx.cb_cnt[ci]);
+        rp_nl(&out);
+        ci = ci + 1;
+    }
+
+    // ---- RESULT ----
+    oput_lit(&out, STR_PTR("RESULT  "), STR_LEN("RESULT  "));
+    if v.fails == 0 {
+        oput_lit(&out, STR_PTR("ALL PASS"), STR_LEN("ALL PASS"));
+    } else {
+        oput_lit(&out, STR_PTR("FAILURES PRESENT"), STR_LEN("FAILURES PRESENT"));
+    };
+    oput_lit(&out, STR_PTR("（失败 "), STR_LEN("（失败 "));
+    oput_i64(&out, v.fails);
+    oput_lit(&out, STR_PTR(" 项）"), STR_LEN(" 项）"));
+    rp_nl(&out);
+
+    // ---- 输出：stdout + 报告文件 ----
+    sa_print_bytes(&out.bytes, out.len);
+    let rpath = StrB { bytes: [0u8; 1024], len: 0 };
+    sput_strb(&rpath, &rootb);
+    sput_lit(&rpath, STR_PTR("/validation_report.txt"), STR_LEN("/validation_report.txt"));
+    let wrc: i32 = sa_fs_write_file(&rpath.bytes, rpath.len, &out.bytes, out.len);
+    if wrc != 0 {
+        // 报告落盘失败响亮提示并以退出码 1 兜底（不静默）
+        sa_print_bytes(STR_PTR("WARN  validation_report.txt write failed\n"), STR_LEN("WARN  validation_report.txt write failed\n"));
+        return 1;
+    };
+    if v.fails == 0 { return 0; };
+    return 1;
+}
+
+fn schema_missing(o: &OutB, v: &Val, doc: &JsonDoc, e: i64, kp: ptr, kn: u64) {
+    rp_fail(o, v);
+    oput_lit(o, STR_PTR("条目 "), STR_LEN("条目 "));
+    oput_id_or_q(o, doc, e);
+    oput_lit(o, STR_PTR(" 缺字段 "), STR_LEN(" 缺字段 "));
+    oput_lit(o, kp, kn);
+    rp_nl(o);
+}
+
+fn jhas(doc: &JsonDoc, obj: i64, kp: ptr, kn: u64) -> bool {
+    return j_obj_get(doc, obj, kp, kn) >= 0;
+}
+
+// 计数桶：(curriculum, kind) 跨度对 -> 计数
+fn combo_add(doc: &JsonDoc, ctx: &Ctx, e: i64) {
+    let curr = str_span(doc, j_obj_get(doc, e, STR_PTR("curriculum"), STR_LEN("curriculum")));
+    let kind = str_span(doc, j_obj_get(doc, e, STR_PTR("kind"), STR_LEN("kind")));
+    let coff: u64 = 0;
+    let clen: u64 = 0;
+    let koff: u64 = 0;
+    let klen: u64 = 0;
+    if curr.ok { coff = curr.off; clen = curr.len; };
+    if kind.ok { koff = kind.off; klen = kind.len; };
+    let i: u64 = 0;
+    while i < ctx.cb_n {
+        if pool_eq(doc, ctx.cb_coff[i], ctx.cb_clen[i], coff, clen) {
+            if pool_eq(doc, ctx.cb_koff[i], ctx.cb_klen[i], koff, klen) {
+                ctx.cb_cnt[i] = ctx.cb_cnt[i] + 1;
+                return;
+            };
+        };
+        i = i + 1;
+    }
+    if ctx.cb_n >= 64 { panic(9505); };
+    ctx.cb_coff[ctx.cb_n] = coff;
+    ctx.cb_clen[ctx.cb_n] = clen;
+    ctx.cb_koff[ctx.cb_n] = koff;
+    ctx.cb_klen[ctx.cb_n] = klen;
+    ctx.cb_cnt[ctx.cb_n] = 1;
+    ctx.cb_n = ctx.cb_n + 1;
+}
+
+// 池跨度字典序（字节序 == 码点序）
+fn span_cmp(doc: &JsonDoc, o1: u64, l1: u64, o2: u64, l2: u64) -> i64 {
+    let m: u64 = l1;
+    if l2 < m { m = l2; };
+    let i: u64 = 0;
+    while i < m {
+        let x: u8 = j_pool_byte(doc, o1 + i);
+        let y: u8 = j_pool_byte(doc, o2 + i);
+        if x != y {
+            if x < y { return -1; };
+            return 1;
+        };
+        i = i + 1;
+    }
+    if l1 == l2 { return 0; };
+    if l1 < l2 { return -1; };
+    return 1;
+}
+
+fn combo_sort(doc: &JsonDoc, ctx: &Ctx) {
+    let i: u64 = 0;
+    while i < ctx.cb_n {
+        let j: u64 = 0;
+        while j + 1 < ctx.cb_n - i {
+            let c1: i64 = span_cmp(doc, ctx.cb_coff[j], ctx.cb_clen[j], ctx.cb_coff[j + 1], ctx.cb_clen[j + 1]);
+            let swap: bool = false;
+            if c1 > 0 { swap = true; } else {
+                if c1 == 0 {
+                    if span_cmp(doc, ctx.cb_koff[j], ctx.cb_klen[j], ctx.cb_koff[j + 1], ctx.cb_klen[j + 1]) > 0 { swap = true; };
+                };
+            };
+            if swap {
+                let to: u64 = ctx.cb_coff[j]; ctx.cb_coff[j] = ctx.cb_coff[j + 1]; ctx.cb_coff[j + 1] = to;
+                let tl: u64 = ctx.cb_clen[j]; ctx.cb_clen[j] = ctx.cb_clen[j + 1]; ctx.cb_clen[j + 1] = tl;
+                let ko: u64 = ctx.cb_koff[j]; ctx.cb_koff[j] = ctx.cb_koff[j + 1]; ctx.cb_koff[j + 1] = ko;
+                let kl: u64 = ctx.cb_klen[j]; ctx.cb_klen[j] = ctx.cb_klen[j + 1]; ctx.cb_klen[j + 1] = kl;
+                let tc: i64 = ctx.cb_cnt[j]; ctx.cb_cnt[j] = ctx.cb_cnt[j + 1]; ctx.cb_cnt[j + 1] = tc;
+            };
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+}
+
+// species 登记 + 校验 4（composition/id/charge）
+fn check_species(o: &OutB, v: &Val, doc: &JsonDoc, ctx: &Ctx, e: i64) {
+    // 先登记（与原校验器一致：登记先于校验，方程式引用按 id 找）
+    let id = entry_id_span(doc, e);
+    if id.ok {
+        if ctx.sp_n >= 256 { panic(9506); };
+        ctx.sp_off[ctx.sp_n] = id.off;
+        ctx.sp_len[ctx.sp_n] = id.len;
+        ctx.sp_node[ctx.sp_n] = e;
+        ctx.sp_n = ctx.sp_n + 1;
+    };
+    let payload: i64 = j_obj_get(doc, e, STR_PTR("payload"), STR_LEN("payload"));
+    let formula = str_span(doc, j_obj_get(doc, payload, STR_PTR("formula"), STR_LEN("formula")));
+    if !formula.ok {
+        v.sp_bad = v.sp_bad + 1;
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("species "), STR_LEN("species "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 化学式解析失败: formula 缺失或非字符串"), STR_LEN(" 化学式解析失败: formula 缺失或非字符串"));
+        rp_nl(o);
+        return;
+    };
+    let cmap = fmap_new();
+    let pok: bool = parse_formula(doc, formula.off, formula.len, &cmap);
+    if !pok {
+        v.sp_bad = v.sp_bad + 1;
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("species "), STR_LEN("species "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 化学式解析失败: "), STR_LEN(" 化学式解析失败: "));
+        oput_pool(o, doc, formula.off, formula.len);
+        rp_nl(o);
+        return;
+    };
+    // composition 逐项比对
+    let comp: i64 = j_obj_get(doc, payload, STR_PTR("composition"), STR_LEN("composition"));
+    let comp_ok: bool = false;
+    if j_kind(doc, comp) == jk_obj() {
+        if j_obj_len(doc, comp) == cmap.n {
+            comp_ok = true;
+            let mi: u64 = 0;
+            while mi < cmap.n {
+                let mem = j_obj_member_at(doc, comp, mi);
+                // 声明侧按成员逐个与解析侧对齐（双向集合相等：成员数已等，逐成员命中解析集即相等）
+                let koff: u64 = doc.soff[mem as u64];
+                let klen: u64 = doc.slen[mem as u64];
+                let fidx: i64 = fmap_find(doc, &cmap, koff, klen);
+                if fidx < 0 {
+                    comp_ok = false;
+                } else {
+                    let dv = j_as_int_exact(doc, doc.child[mem as u64]);
+                    if !dv.ok { comp_ok = false; } else {
+                        if dv.v != cmap.cnt[fidx as u64] { comp_ok = false; };
+                    };
+                };
+                mi = mi + 1;
+            }
+        };
+    };
+    if !comp_ok {
+        v.sp_bad = v.sp_bad + 1;
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("species "), STR_LEN("species "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" composition 不符"), STR_LEN(" composition 不符"));
+        rp_nl(o);
+    };
+    // id 一致性：formula1:<formula>@<charge>
+    let charge_node: i64 = j_obj_get(doc, payload, STR_PTR("charge"), STR_LEN("charge"));
+    let chg_trunc = dec_trunc_int(doc, charge_node);
+    let expect = StrB { bytes: [0u8; 1024], len: 0 };
+    sput_lit(&expect, STR_PTR("formula1:"), STR_LEN("formula1:"));
+    sput_pool(&expect, doc, formula.off, formula.len);
+    sput_lit(&expect, STR_PTR("@"), STR_LEN("@"));
+    if chg_trunc.ok {
+        sput_i64(&expect, chg_trunc.v);
+    } else {
+        sput_lit(&expect, STR_PTR("?"), STR_LEN("?"));
+    };
+    if id.ok {
+        if !strb_eq_span(&expect, doc, id.off, id.len) {
+            v.sp_bad = v.sp_bad + 1;
+            rp_fail(o, v);
+            oput_lit(o, STR_PTR("species "), STR_LEN("species "));
+            oput_id_or_q(o, doc, e);
+            oput_lit(o, STR_PTR(" id 与 formula/charge 不一致"), STR_LEN(" id 与 formula/charge 不一致"));
+            rp_nl(o);
+        };
+    };
+    // charge 须为整数
+    let chg = j_int(doc, charge_node);
+    if !chg.ok {
+        v.sp_bad = v.sp_bad + 1;
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("species "), STR_LEN("species "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" charge 非整数"), STR_LEN(" charge 非整数"));
+        rp_nl(o);
+    };
+}
+
+// fact 校验 6（原子量取整自洽，精确十进制）
+fn check_fact(o: &OutB, v: &Val, doc: &JsonDoc, e: i64) {
+    let payload: i64 = j_obj_get(doc, e, STR_PTR("payload"), STR_LEN("payload"));
+    let tb = j_dec(doc, j_obj_get(doc, payload, STR_PTR("mass_textbook"), STR_LEN("mass_textbook")));
+    let pr = j_dec(doc, j_obj_get(doc, payload, STR_PTR("mass_precise"), STR_LEN("mass_precise")));
+    if !tb.ok || !pr.ok || tb.mant <= 0 || pr.mant <= 0 {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("fact "), STR_LEN("fact "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 原子量字段非法"), STR_LEN(" 原子量字段非法"));
+        rp_nl(o);
+        return;
+    };
+    if dec_diff_gt_0_6(tb, pr) {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("fact "), STR_LEN("fact "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 课本取整值与精确值相差过大"), STR_LEN(" 课本取整值与精确值相差过大"));
+        rp_nl(o);
+    };
+}
+
+// 物种 id 查表（后登记者胜，与原校验器 dict 覆盖语义一致）
+fn species_lookup(doc: &JsonDoc, ctx: &Ctx, off: u64, len: u64) -> i64 {
+    let i: u64 = ctx.sp_n;
+    while i > 0 {
+        i = i - 1;
+        if pool_eq(doc, ctx.sp_off[i], ctx.sp_len[i], off, len) {
+            return ctx.sp_node[i];
+        };
+    }
+    return -1;
+}
+
+// 方程式校验 5：返回 true = 本条全过
+fn check_equation(o: &OutB, v: &Val, doc: &JsonDoc, ctx: &Ctx, e: i64) -> bool {
+    let payload: i64 = j_obj_get(doc, e, STR_PTR("payload"), STR_LEN("payload"));
+    let mut_bad: bool = false;
+    if j_kind(doc, payload) != jk_obj() {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" payload 非对象"), STR_LEN(" payload 非对象"));
+        rp_nl(o);
+        return false;
+    };
+    let arrow = str_span(doc, j_obj_get(doc, payload, STR_PTR("arrow"), STR_LEN("arrow")));
+    let arrow_ok: bool = false;
+    if arrow.ok {
+        if span_eq_p(doc, arrow.off, arrow.len, STR_PTR("->"), STR_LEN("->")) { arrow_ok = true; };
+        if span_eq_p(doc, arrow.off, arrow.len, STR_PTR("<=>"), STR_LEN("<=>")) { arrow_ok = true; };
+    };
+    if !arrow_ok {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" arrow 非法"), STR_LEN(" arrow 非法"));
+        rp_nl(o);
+        mut_bad = true;
+    };
+    let emap = fmap_new();
+    let chg: i64 = 0;
+    let broken: bool = false;
+    let side: u64 = 0;
+    while side < 2 {
+        let sign: i64 = 1;
+        let side_node: i64 = -1;
+        if side == 0 {
+            side_node = j_obj_get(doc, payload, STR_PTR("lhs"), STR_LEN("lhs"));
+        } else {
+            sign = -1;
+            side_node = j_obj_get(doc, payload, STR_PTR("rhs"), STR_LEN("rhs"));
+        };
+        if j_kind(doc, side_node) != jk_arr() {
+            rp_fail(o, v);
+            oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+            oput_id_or_q(o, doc, e);
+            oput_lit(o, STR_PTR(" 一侧缺失或非数组"), STR_LEN(" 一侧缺失或非数组"));
+            rp_nl(o);
+            broken = true;
+        } else {
+            let cnt: u64 = j_arr_len(doc, side_node);
+            let ii: u64 = 0;
+            while ii < cnt {
+                let item: i64 = j_arr_at(doc, side_node, ii);
+                if j_kind(doc, item) != jk_arr() || j_arr_len(doc, item) != 2 {
+                    rp_fail(o, v);
+                    oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+                    oput_id_or_q(o, doc, e);
+                    oput_lit(o, STR_PTR(" 条目非 [物种, 系数] 二元组"), STR_LEN(" 条目非 [物种, 系数] 二元组"));
+                    rp_nl(o);
+                    broken = true;
+                } else {
+                    let ref = str_span(doc, j_arr_at(doc, item, 0));
+                    let coef = j_int(doc, j_arr_at(doc, item, 1));
+                    let coef_ok: bool = false;
+                    if coef.ok {
+                        if coef.v > 0 { coef_ok = true; };
+                    };
+                    if !coef_ok {
+                        rp_fail(o, v);
+                        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+                        oput_id_or_q(o, doc, e);
+                        oput_lit(o, STR_PTR(" 系数非法"), STR_LEN(" 系数非法"));
+                        rp_nl(o);
+                        broken = true;
+                    };
+                    if !ref.ok {
+                        rp_fail(o, v);
+                        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+                        oput_id_or_q(o, doc, e);
+                        oput_lit(o, STR_PTR(" 物种引用非字符串"), STR_LEN(" 物种引用非字符串"));
+                        rp_nl(o);
+                        broken = true;
+                    } else {
+                        let sp: i64 = species_lookup(doc, ctx, ref.off, ref.len);
+                        if sp < 0 {
+                            rp_fail(o, v);
+                            oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+                            oput_id_or_q(o, doc, e);
+                            oput_lit(o, STR_PTR(" 引用不存在的物种: "), STR_LEN(" 引用不存在的物种: "));
+                            oput_pool(o, doc, ref.off, ref.len);
+                            rp_nl(o);
+                            broken = true;
+                        } else {
+                            if coef_ok {
+                                let spp: i64 = j_obj_get(doc, sp, STR_PTR("payload"), STR_LEN("payload"));
+                                let scomp: i64 = j_obj_get(doc, spp, STR_PTR("composition"), STR_LEN("composition"));
+                                if j_kind(doc, scomp) == jk_obj() {
+                                    let mn: u64 = j_obj_len(doc, scomp);
+                                    let mi: u64 = 0;
+                                    while mi < mn {
+                                        let mem = j_obj_member_at(doc, scomp, mi);
+                                        let cv = j_as_int_exact(doc, doc.child[mem as u64]);
+                                        if !cv.ok {
+                                            broken = true;
+                                        } else {
+                                            fmap_add(doc, &emap, doc.soff[mem as u64], doc.slen[mem as u64], sign * coef.v * cv.v);
+                                        };
+                                        mi = mi + 1;
+                                    }
+                                } else {
+                                    broken = true;
+                                };
+                                let schg = j_as_int_exact(doc, j_obj_get(doc, spp, STR_PTR("charge"), STR_LEN("charge")));
+                                if !schg.ok {
+                                    broken = true;
+                                } else {
+                                    chg = chg + sign * coef.v * schg.v;
+                                };
+                            };
+                        };
+                    };
+                };
+                ii = ii + 1;
+            }
+        };
+        side = side + 1;
+    }
+    if broken { return false; };
+    if mut_bad { return false; };
+    let resid: bool = false;
+    let ri: u64 = 0;
+    while ri < emap.n {
+        if emap.cnt[ri] != 0 { resid = true; };
+        ri = ri + 1;
+    }
+    if resid {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 元素不守恒，残差 "), STR_LEN(" 元素不守恒，残差 "));
+        let rj: u64 = 0;
+        let first: bool = true;
+        while rj < emap.n {
+            if emap.cnt[rj] != 0 {
+                if !first { oput_lit(o, STR_PTR(", "), STR_LEN(", ")); };
+                first = false;
+                oput_pool(o, doc, emap.off[rj], emap.len[rj]);
+                oput_lit(o, STR_PTR(":"), STR_LEN(":"));
+                oput_i64(o, emap.cnt[rj]);
+            };
+            rj = rj + 1;
+        }
+        rp_nl(o);
+        return false;
+    };
+    if chg != 0 {
+        rp_fail(o, v);
+        oput_lit(o, STR_PTR("equation "), STR_LEN("equation "));
+        oput_id_or_q(o, doc, e);
+        oput_lit(o, STR_PTR(" 电荷不守恒，残差 "), STR_LEN(" 电荷不守恒，残差 "));
+        oput_i64(o, chg);
+        rp_nl(o);
+        return false;
+    };
+    return true;
+}

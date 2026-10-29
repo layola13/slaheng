@@ -1,0 +1,138 @@
+// kb/tools/test_json.sla —— json.sla 的单元语料（@test；panic 码 93xx 为本文件断言编号）
+// 运行：sla test test_json.sla（需 SA_STD_DIR/SCI_ROOT 指向 sci 仓）。
+
+@import "json.sla"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+
+fn parse_lit(p: ptr, n: u64) -> (JsonDoc, i64) {
+    let doc = json_doc_new();
+    let root: i64 = json_parse(&doc, p, n);
+    return (doc, root);
+}
+
+@test "json scalars: int / dec / bool / null"() {
+    let (doc, r) = parse_lit(STR_PTR("123"), STR_LEN("123"));
+    if r < 0 { panic(9301); };
+    if j_kind(&doc, r) != jk_int() { panic(9302); };
+    let iv = j_int(&doc, r);
+    if !iv.ok { panic(9303); };
+    if iv.v != 123 { panic(9304); };
+    let (doc2, r2) = parse_lit(STR_PTR("-0.5"), STR_LEN("-0.5"));
+    if j_kind(&doc2, r2) != jk_dec() { panic(9305); };
+    let dv = j_dec(&doc2, r2);
+    if !dv.ok { panic(9306); };
+    if dv.mant != -5 { panic(9307); };
+    if dv.scale != 1 { panic(9308); };
+    let (doc3, r3) = parse_lit(STR_PTR("1e2"), STR_LEN("1e2"));
+    if j_kind(&doc3, r3) != jk_dec() { panic(9309); };
+    let dv3 = j_dec(&doc3, r3);
+    if dv3.mant != 1 { panic(9310); };
+    if dv3.scale != -2 { panic(9311); };
+    let ex3 = j_as_int_exact(&doc3, r3);
+    if !ex3.ok { panic(9312); };
+    if ex3.v != 100 { panic(9313); };
+    let (doc4, r4) = parse_lit(STR_PTR("207.2"), STR_LEN("207.2"));
+    let dv4 = j_dec(&doc4, r4);
+    if dv4.mant != 2072 { panic(9314); };
+    if dv4.scale != 1 { panic(9315); };
+    let (doc5, r5) = parse_lit(STR_PTR("true"), STR_LEN("true"));
+    if j_kind(&doc5, r5) != jk_bool() { panic(9316); };
+    if doc5.ival[r5 as u64] != 1 { panic(9317); };
+    let (doc6, r6) = parse_lit(STR_PTR("false"), STR_LEN("false"));
+    if j_kind(&doc6, r6) != jk_bool() { panic(9318); };
+    if doc6.ival[r6 as u64] != 0 { panic(9319); };
+    let (doc7, r7) = parse_lit(STR_PTR("null"), STR_LEN("null"));
+    if j_kind(&doc7, r7) != jk_null() { panic(9320); };
+    let (doc8, r8) = parse_lit(STR_PTR("2.0"), STR_LEN("2.0"));
+    let ex8 = j_as_int_exact(&doc8, r8);
+    if !ex8.ok { panic(9321); };
+    if ex8.v != 2 { panic(9322); };
+    let (doc9, r9) = parse_lit(STR_PTR("2.5"), STR_LEN("2.5"));
+    let ex9 = j_as_int_exact(&doc9, r9);
+    if ex9.ok { panic(9323); };
+    let iv9 = j_int(&doc9, r9);
+    if iv9.ok { panic(9324); };
+}
+
+@test "json strings: escapes and unicode decode into pool"() {
+    let (doc, r) = parse_lit(STR_PTR("\"a\\n\\u4e2d\\u6587\\\\\\\"\""), STR_LEN("\"a\\n\\u4e2d\\u6587\\\\\\\"\""));
+    if r < 0 { panic(9331); };
+    if j_kind(&doc, r) != jk_str() { panic(9332); };
+    // 期望解码字节： a \n 中(E4 B8 AD) 文(E6 96 87) \ "
+    let off: u64 = doc.soff[r as u64];
+    if doc.slen[r as u64] != 10 { panic(9333); };
+    if j_pool_byte(&doc, off + 0) != 97 { panic(9334); };
+    if j_pool_byte(&doc, off + 1) != 10 { panic(9335); };
+    if j_pool_byte(&doc, off + 2) != 228 { panic(9336); };
+    if j_pool_byte(&doc, off + 3) != 184 { panic(9337); };
+    if j_pool_byte(&doc, off + 4) != 173 { panic(9338); };
+    if j_pool_byte(&doc, off + 5) != 230 { panic(9339); };
+    if j_pool_byte(&doc, off + 6) != 150 { panic(9340); };
+    if j_pool_byte(&doc, off + 7) != 135 { panic(9341); };
+    if j_pool_byte(&doc, off + 8) != 92 { panic(9342); };
+    if j_pool_byte(&doc, off + 9) != 34 { panic(9343); };
+    // 代理对 U+1F600 -> F0 9F 98 80
+    let (doc2, r2) = parse_lit(STR_PTR("\"\\uD83D\\uDE00\""), STR_LEN("\"\\uD83D\\uDE00\""));
+    if r2 < 0 { panic(9344); };
+    let off2: u64 = doc2.soff[r2 as u64];
+    if doc2.slen[r2 as u64] != 4 { panic(9345); };
+    if j_pool_byte(&doc2, off2 + 0) != 240 { panic(9346); };
+    if j_pool_byte(&doc2, off2 + 1) != 159 { panic(9347); };
+    if j_pool_byte(&doc2, off2 + 2) != 152 { panic(9348); };
+    if j_pool_byte(&doc2, off2 + 3) != 128 { panic(9349); };
+    // 原始 UTF-8 透传与字面量比对
+    let (doc3, r3) = parse_lit(STR_PTR("\"初中\""), STR_LEN("\"初中\""));
+    if !j_str_eq(&doc3, r3, STR_PTR("初中"), STR_LEN("初中")) { panic(9350); };
+}
+
+@test "json nested: object/array access and dup key last-wins"() {
+    let (doc, r) = parse_lit(STR_PTR("{\"a\": [1, 2.5, \"x\"], \"b\": {\"c\": -3}, \"k\": 1, \"k\": 2}"), STR_LEN("{\"a\": [1, 2.5, \"x\"], \"b\": {\"c\": -3}, \"k\": 1, \"k\": 2}"));
+    if r < 0 { panic(9361); };
+    if j_kind(&doc, r) != jk_obj() { panic(9362); };
+    if j_obj_len(&doc, r) != 4 { panic(9363); };
+    let a = j_obj_get(&doc, r, STR_PTR("a"), STR_LEN("a"));
+    if j_kind(&doc, a) != jk_arr() { panic(9364); };
+    if j_arr_len(&doc, a) != 3 { panic(9365); };
+    let a0 = j_int(&doc, j_arr_at(&doc, a, 0));
+    if !a0.ok { panic(9366); };
+    if a0.v != 1 { panic(9367); };
+    let a1 = j_dec(&doc, j_arr_at(&doc, a, 1));
+    if a1.mant != 25 { panic(9368); };
+    if a1.scale != 1 { panic(9369); };
+    if !j_str_eq(&doc, j_arr_at(&doc, a, 2), STR_PTR("x"), STR_LEN("x")) { panic(9370); };
+    let b = j_obj_get(&doc, r, STR_PTR("b"), STR_LEN("b"));
+    let c = j_int(&doc, j_obj_get(&doc, b, STR_PTR("c"), STR_LEN("c")));
+    if !c.ok { panic(9371); };
+    if c.v != -3 { panic(9372); };
+    let k = j_int(&doc, j_obj_get(&doc, r, STR_PTR("k"), STR_LEN("k")));
+    if k.v != 2 { panic(9373); };
+    if j_obj_get(&doc, r, STR_PTR("missing"), STR_LEN("missing")) >= 0 { panic(9374); };
+    if !(j_obj_get(&doc, r, STR_PTR("b"), STR_LEN("b")) >= 0) { panic(9375); };
+    if j_obj_get(&doc, r, STR_PTR("zz"), STR_LEN("zz")) >= 0 { panic(9376); };
+    if j_arr_at(&doc, a, 3) >= 0 { panic(9377); };
+    // 成员顺序迭代
+    let m0 = j_obj_member_at(&doc, r, 0);
+    if !j_span_eq(&doc, doc.soff[m0 as u64], doc.slen[m0 as u64], STR_PTR("a"), 1) { panic(9378); };
+}
+
+@test "json errors are loud"() {
+    let (d1, e1) = parse_lit(STR_PTR("{ } x"), STR_LEN("{ } x"));
+    if e1 >= 0 { panic(9391); };
+    let (d2, e2) = parse_lit(STR_PTR("\"abc"), STR_LEN("\"abc"));
+    if e2 >= 0 { panic(9392); };
+    let (d3, e3) = parse_lit(STR_PTR("nul"), STR_LEN("nul"));
+    if e3 >= 0 { panic(9393); };
+    let (d4, e4) = parse_lit(STR_PTR("[1,]"), STR_LEN("[1,]"));
+    if e4 >= 0 { panic(9394); };
+    let (d5, e5) = parse_lit(STR_PTR("[1,2"), STR_LEN("[1,2"));
+    if e5 >= 0 { panic(9395); };
+    let (d6, e6) = parse_lit(STR_PTR("{\"a\":}"), STR_LEN("{\"a\":}"));
+    if e6 >= 0 { panic(9396); };
+    let (d7, e7) = parse_lit(STR_PTR(""), STR_LEN(""));
+    if e7 >= 0 { panic(9397); };
+    let (d8, e8) = parse_lit(STR_PTR("01"), STR_LEN("01"));
+    if e8 >= 0 { panic(9398); };
+    let (d9, e9) = parse_lit(STR_PTR("\"a\\q\""), STR_LEN("\"a\\q\""));
+    if e9 >= 0 { panic(9399); };
+}

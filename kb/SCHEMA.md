@@ -66,5 +66,8 @@
 
 ## 校验
 
-`python3 kb/tools/validate_kb.py`（退出码 0 = 全过），报告落 `kb/validation_report.txt`。
-校验器实现语言为 Python（数据工程工具），与引擎运行时的关系及 SLA 迁移记于仓根 `GAPS.md`。
+校验器为 SLA 实现（`kb/tools/validate_kb.sla`，零 Python）：构建
+`sla build-exe kb/tools/validate_kb.sla -o kb/tools/validate_kb`，仓根运行 `kb/tools/validate_kb kb`
+（退出码 0 = 全过），报告落 `kb/validation_report.txt`。
+所用 JSON 解析器为 `kb/tools/json.sla`（对象/数组/字符串/数字/布尔/null + 转义，数字保精确十进制），
+自带测试 `kb/tools/test_json.sla`；原 Python 校验器已删除，迁移经过记于仓根 `GAPS.md`。

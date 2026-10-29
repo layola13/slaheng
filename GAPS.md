@@ -2,11 +2,14 @@
 
 ## kb 线（知识底座）
 
-- **校验器实现语言 = Python，非 SLA**（2026-10-29）：kb 校验（JSON 解析 + 化学式递归下降解析 +
-  守恒验算）属数据工程，本机 SLA 工具链虽可用（sa 0.1.8 冒烟过），但当前 SLA/std 无现成 JSON
-  解析面，自建解析层会挤占数据正确性本身的工时，故 v0.1 校验器用 Python（`kb/tools/validate_kb.py`），
-  按 README 纪律在此明示。SLA 化迁移条件：species 线 canon 与 found 线数据面就绪后，
-  校验逻辑（解析器 + 守恒验算）应迁入 SLA 并进入常规门禁，Python 版退为对照实现。
+- **校验器 Python 实现一条已关闭**（2026-10-29 整改，用户「禁止用 Python」新规）：校验器已由
+  Python 移植为 SLA（`kb/tools/validate_kb.sla`），并自建最小 JSON 解析器 `kb/tools/json.sla`
+  （对象/数组/字符串/数字/布尔/null + 转义与 \u 代理对；数字以 (mantissa, scale) 精确十进制
+  保存，不经浮点），自带测试 `kb/tools/test_json.sla`。新校验器对现有 278 条数据的报告与
+  Python 版逐字节一致（ALL PASS，`kb/validation_report.txt` 内容无差异），`validate_kb.py` 已删除。
+  移植实证两条 SLA 纪律（已注于源码）：① 字符串字面量不得作 String/ptr 形参跨函数传递，
+  须在字面量所在函数内以 STR_PTR/STR_LEN 原地提取 (ptr, len)；② 含大数组的结构体
+  （如元素计数映射 FMap）禁止按值传参/返回，须用 & 原地变更（按值复制实测丢字段）。
 - **能量数据（G°/H°）未收**：v0.1 知识底座只含 C1 层数据（化学式/组成/方程式/原子量）。
   核心演算的 C2 热力学一致性需要物种级 G°/H°，属后续阶段；补收时必须逐条带 `measured:<ref>`
   文献溯源，不许以 `assumed` 批量填充。

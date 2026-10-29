@@ -17,7 +17,9 @@
 校验结论：**ALL PASS** —— 全部 species 的 composition 与化学式独立解析结果一致；
 全部 109 条方程式引用完整且元素守恒、电荷守恒；id 全局唯一；provenance 格式合法。
 
-复现：`python3 tools/validate_kb.py`（退出码 0；报告写入 validation_report.txt）。
+复现（SLA 校验器，零 Python）：构建 `sla build-exe tools/validate_kb.sla -o tools/validate_kb` 后，
+在仓根运行 `kb/tools/validate_kb kb`（退出码 0 = ALL PASS；报告同时打印并写入 validation_report.txt）。
+JSON 解析器为 `tools/json.sla`（自带测试 `tools/test_json.sla`）；原 Python 校验器已按「禁止用 Python」新规删除。
 
 ## 存疑与注记清单（诚实账）
 
