@@ -1,0 +1,44 @@
+// 衡 · species 线演示：化学式记录 + SMILES 记录 + 三组等价性判定。
+// 运行（在 species/ 目录）：
+//   sla build-exe demo.sla -o demo.bin && ./demo.bin
+// 环境配方见 README.md。验收语料在 tests_species.sla（sla test）。
+@import "sa_std/io/print.sai"
+@import "species.sla"
+
+fn show_formula(src: ptr) {
+    let r = formula_record_json(src);
+    match r {
+        Ok(js) => { println("formula {} => {}", src, js); },
+        Err(e) => { println("formula {} => ERR {}", src, e); },
+    };
+}
+
+fn show_smiles(src: ptr) {
+    let r = smiles_record_json(src);
+    match r {
+        Ok(js) => { println("smiles {} => {}", src, js); },
+        Err(e) => { println("smiles {} => ERR {}", src, e); },
+    };
+}
+
+fn show_same(a: ptr, b: ptr) {
+    let r = smiles_same_species(a, b);
+    match r {
+        Ok(v) => { println("same_species({}, {}) = {}", a, b, v); },
+        Err(e) => { println("same_species({}, {}) => ERR {}", a, b, e); },
+    };
+}
+
+fn main() -> i32 {
+    show_formula("H2O");
+    show_formula("Ca(OH)2");
+    show_formula("CuSO4·5H2O");
+    show_formula("SO4^2-");
+    show_smiles("CCO");
+    show_smiles("C1=CC=CC=C1");
+    show_smiles("C[C@@H](N)C(=O)O");
+    show_same("CCO", "OCC");
+    show_same("c1ccccc1", "C1C=CC=CC=1");
+    show_same("C[C@@H](N)C(=O)O", "C[C@H](N)C(=O)O");
+    return 0;
+}

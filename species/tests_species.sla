@@ -1,0 +1,201 @@
+// 衡 · species 线验收语料（草案 §7 P1 验收样例 + 本线扩展）
+// 运行命令见 species/README.md（sla test）。断言失败以 panic 码定位：21xxx。
+@import "species.sla"
+
+fn fcounts(src: ptr) -> FormulaInfo {
+    let r = parse_formula(src);
+    match r {
+        Ok(info) => { return info; },
+        Err(e) => { panic(21901); },
+    }
+}
+
+fn ferr(src: ptr) -> i32 {
+    let r = parse_formula(src);
+    match r {
+        Ok(info) => { return -1; },
+        Err(e) => { return e; },
+    }
+}
+
+fn gcounts(src: ptr) -> FormulaInfo {
+    let r = parse_smiles(src);
+    match r {
+        Ok(g) => { return graph_composition(&g); },
+        Err(e) => { panic(21902); },
+    }
+}
+
+fn gid(src: ptr) -> String {
+    let r = parse_smiles(src);
+    match r {
+        Ok(g) => { return species_id(&g); },
+        Err(e) => { panic(21903); },
+    }
+}
+
+fn serr(src: ptr) -> i32 {
+    let r = parse_smiles(src);
+    match r {
+        Ok(g) => { return -1; },
+        Err(e) => { return e; },
+    }
+}
+
+// id/文本等值断言：实参均为 owned String（函数返回值/format 产物），走 str_eq
+fn must_id_eq(x: String, y: String, code: i32) {
+    if str_eq(x, y) != true { panic(code); };
+}
+
+@test "fnv1a64 known vectors"() {
+    must_id_eq(hex64(fnv1a64_lit("")), format("cbf29ce484222325"), 21091);
+    must_id_eq(hex64(fnv1a64_lit("a")), format("af63dc4c8601ec8c"), 21092);
+    must_id_eq(hex64(fnv1a64_lit("foobar")), format("85944171f73967e8"), 21093);
+}
+
+@test "formula water"() {
+    let i = fcounts("H2O");
+    if i.counts[1] != 2 { panic(21001); };
+    if i.counts[8] != 1 { panic(21002); };
+    if i.charge != 0 { panic(21003); };
+}
+
+@test "formula glucose"() {
+    let i = fcounts("C6H12O6");
+    if i.counts[6] != 6 { panic(21011); };
+    if i.counts[1] != 12 { panic(21012); };
+    if i.counts[8] != 6 { panic(21013); };
+}
+
+@test "formula calcium hydroxide"() {
+    let i = fcounts("Ca(OH)2");
+    if i.counts[20] != 1 { panic(21021); };
+    if i.counts[8] != 2 { panic(21022); };
+    if i.counts[1] != 2 { panic(21023); };
+}
+
+@test "formula ferric sulfate"() {
+    let i = fcounts("Fe2(SO4)3");
+    if i.counts[26] != 2 { panic(21031); };
+    if i.counts[16] != 3 { panic(21032); };
+    if i.counts[8] != 12 { panic(21033); };
+}
+
+@test "formula hydrate copper sulfate"() {
+    let i = fcounts("CuSO4·5H2O");
+    if i.counts[29] != 1 { panic(21041); };
+    if i.counts[16] != 1 { panic(21042); };
+    if i.counts[8] != 9 { panic(21043); };
+    if i.counts[1] != 10 { panic(21044); };
+}
+
+@test "formula ions"() {
+    let a = fcounts("SO4^2-");
+    if a.counts[16] != 1 || a.counts[8] != 4 { panic(21051); };
+    if a.charge != -2 { panic(21052); };
+    let b = fcounts("NH4^+");
+    if b.counts[7] != 1 || b.counts[1] != 4 { panic(21053); };
+    if b.charge != 1 { panic(21054); };
+    let c = fcounts("Fe^3+");
+    if c.charge != 3 { panic(21055); };
+}
+
+@test "formula acetic acid"() {
+    let i = fcounts("CH3COOH");
+    if i.counts[6] != 2 || i.counts[1] != 4 || i.counts[8] != 2 { panic(21061); };
+}
+
+@test "formula errors loud"() {
+    if ferr("") != 1 { panic(21071); };
+    if ferr("Xx") != 2 { panic(21072); };
+    if ferr("2H2O") != 4 { panic(21073); };
+    if ferr("Ca(OH") != 3 { panic(21074); };
+    if ferr("SO4^2") != 8 { panic(21075); };
+}
+
+@test "formula record json"() {
+    let r = formula_record_json("H2O");
+    match r {
+        Ok(js) => {
+            if str_eq(js, "{\"id\":\"formula1:H2O@0\",\"formula\":\"H2O\",\"composition\":{\"H\":2,\"O\":1},\"charge\":0}") != true { panic(21081); };
+        },
+        Err(e) => { panic(21082); },
+    }
+}
+
+@test "smiles ethanol composition and id"() {
+    let c = gcounts("CCO");
+    if c.counts[6] != 2 || c.counts[1] != 6 || c.counts[8] != 1 { panic(21101); };
+    must_id_eq(gid("CCO"), gid("OCC"), 21102);
+}
+
+@test "smiles acetic acid"() {
+    let c = gcounts("CC(=O)O");
+    if c.counts[6] != 2 || c.counts[1] != 4 || c.counts[8] != 2 { panic(21111); };
+}
+
+@test "smiles benzene kekule equivalence"() {
+    // 注：owned String 按值传参即 move，id 变量不得复用，逐次现算
+    must_id_eq(gid("c1ccccc1"), gid("C1=CC=CC=C1"), 21121);
+    must_id_eq(gid("c1ccccc1"), gid("C1C=CC=CC=1"), 21122);
+    let c = gcounts("C1=CC=CC=C1");
+    if c.counts[6] != 6 || c.counts[1] != 6 { panic(21123); };
+}
+
+@test "smiles pyridine kekule equivalence"() {
+    must_id_eq(gid("c1ccncc1"), gid("C1=CC=NC=C1"), 21131);
+    let c = gcounts("c1ccncc1");
+    if c.counts[6] != 5 || c.counts[7] != 1 || c.counts[1] != 5 { panic(21132); };
+}
+
+@test "smiles furan kekule equivalence"() {
+    must_id_eq(gid("c1ccoc1"), gid("O1C=CC=C1"), 21141);
+    let c = gcounts("O1C=CC=C1");
+    if c.counts[6] != 4 || c.counts[8] != 1 || c.counts[1] != 4 { panic(21142); };
+}
+
+@test "smiles alanine enantiomers differ"() {
+    if str_eq(gid("C[C@@H](N)C(=O)O"), gid("C[C@H](N)C(=O)O")) { panic(21151); };
+    must_id_eq(gid("C[C@@H](N)C(=O)O"), gid("C[C@@H](N)C(=O)O"), 21152);
+    let c = gcounts("C[C@@H](N)C(=O)O");
+    if c.counts[6] != 3 || c.counts[1] != 7 || c.counts[7] != 1 || c.counts[8] != 2 { panic(21153); };
+}
+
+@test "smiles salts and charged species"() {
+    let c = gcounts("[Na+].[Cl-]");
+    if c.counts[11] != 1 || c.counts[17] != 1 || c.charge != 0 { panic(21161); };
+    let s = gcounts("O=S(=O)([O-])[O-]");
+    if s.counts[16] != 1 || s.counts[8] != 4 || s.charge != -2 { panic(21162); };
+}
+
+@test "smiles errors loud"() {
+    if serr("C1CC") != 5 { panic(21171); };
+    if serr("CX") != 2 { panic(21172); };
+    if serr("C%1CCCCC%1") != 6 { panic(21173); };
+    if serr("C(C") != 3 { panic(21174); };
+}
+
+@test "smiles same species helper"() {
+    let r1 = smiles_same_species("CCO", "OCC");
+    match r1 {
+        Ok(v) => { if v != true { panic(21181); }; },
+        Err(e) => { panic(21182); },
+    };
+    let r2 = smiles_same_species("CCO", "CCN");
+    match r2 {
+        Ok(v) => { if v != false { panic(21183); }; },
+        Err(e) => { panic(21184); },
+    }
+}
+
+@test "smiles record json shape"() {
+    let r = smiles_record_json("CCO");
+    match r {
+        Ok(js) => {
+            // id 为 canon1 哈希，逐字断言组成与电荷段
+            let tail = "\"formula\":\"C2H6O\",\"composition\":{\"C\":2,\"H\":6,\"O\":1},\"charge\":0}";
+            if len(js) != len(tail) + 32 { panic(21191); };
+        },
+        Err(e) => { panic(21192); },
+    }
+}

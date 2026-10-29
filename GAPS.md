@@ -143,3 +143,48 @@
   一律 `&` 原地修改；③ 字符串字面量不能直接 return 为 String、内部指针
   内联传 extern 触发 UseAfterMove（须先绑定具名变量），代码中已注记。
   工具链路径为本机布局（`~/workspace/local-sa/`），换机需改 run_grade.sh。
+
+## species 线（物种层）
+
+- **零 Python 声明（用户 2026-10-29 22:55 新规）**：本线全部交付物为 SLA
+  源码（`species.sla` / `tests_species.sla` / `demo.sla`）+ 文档，无任何
+  Python 文件、无脚本文件（原计划的 run.sh 已取消，运行命令直接写在
+  species/README.md 中）、无 Zig 兜底。开发期一次性探针文件均在 /tmp，
+  未入仓、非交付物。
+- **验证后端 = SAB（`sla test` 默认后端），SA(text) 后端不通（编译器
+  缺口，插件 POTENTIAL_ISSUES #15 同族）**：SLA 的 String/Slice 双表示在
+  两后端不一致——SAB 下 `ptr` 形参即数据指针（直读 + `len()` 正确），
+  SA 下同一代码长度/指针失真（parse 全灭、fnv 段错误）；`STR_PTR(ptr 形参)`
+  在两后端均段错误、`String.bytes()` 在 SAB 报 UnknownRegister callee。
+  本线口径：文本入口收 `ptr`、内部走 (ptr,len) 视图、字节读走
+  STR_PTR/STR_LEN（仅对 owned String）+ PTR_READ_U8，验收以 SAB 后端
+  20/20 为准（逐批名字集见终报）；SA 后端待编译器统一 String 形参约定
+  （#15 值格修复）后再补跑升级口径。与 found 线「固定 text 后端」互为
+  镜像，根因同一。
+- **`sla test` 编译峰值与 build-exe 口径**：canon 的 refine 初版为 Vec 重
+  实现（每轮多组 Vec 临时量），与 hill/composition_json 同入一个测试二进
+  制时 SAB 直降内存线性失控（采样约 0.85GB/6s、多轮被 OOM 杀 rc=137，
+  无语料结论）；已将 refine 改为定长数组 scratch（CanonState 内嵌
+  labels/sig/idxs，零 Vec 分配、本帧标签快照），全量 20 条语料单次运行
+  29 秒全绿（默认 SAB 后端）。`sla build-exe`（LLVM AOT）峰值在本机仍
+  不可行（与 found 线备案同况），demo.sla 以 `sla check` 通过 + 其全部
+  调用面被语料覆盖为验证口径；空闲大内存窗口可补 build-exe 实跑。
+- **芳香感知为有界实现**：仅枚举 5–7 元环 + 三条 π 规则（苯/吡啶/呋喃/
+  䓬鎓型已验）；无通用 SSSR、无完整 Hückel 判定（如 azulene 类 5-7 稠环、
+  反芳香体系不在 v0.1 口径内）——未命中规则的环保持 Kekulé 键级，不同
+  Kekulé 写法可能得到不同 id（响亮边界：composition 不受影响，canon
+  等价性仅在已验环型内承诺）。
+- **手性奇偶的 H 秩为近似口径**：括号 H 的规范秩以其基键在邻居基键中的
+  排位计（非完整 CIP 序）；已验丙氨酸对映体对区分 + 同写法确定性。
+  E/Z 键立体（/ \）按规范端点互换翻转记录，未做双键两端取代基优先级
+  判定（v0.1 只保证同写法等价类的确定性规范化）。
+- **canon 搜索上限退化路径**：叶上限 200000，命中时退化为 WL 细化标签
+  序（确定性，但不保证同构不变）；高考量级分子（≤80 原子、低对称性）
+  正常路径远离上限。签名邻居表定长 8 槽，度 >7 原子细化较粗（分支回溯
+  兜底，不变性不受影响、仅变慢）。
+- **Hill 顺序为 Z 升序近似**：与严格 Hill 字母序在个别元素对（如 Br/B）
+  上不同；已在 species.sla 注释与 README 备案，composition（无序 JSON）
+  不受影响，kb/check 若需严格 Hill 可在其层重排。
+- **未做与 RDKit 的差分对照**：canon 等价性以本线语料的构造性用例为准
+  （链/环/芳香/手性/盐/电荷/错误面）；系统性差分待后续以 kb 物种集为
+  输入批量对拍（需 RDKit 环境，候主会话排期）。

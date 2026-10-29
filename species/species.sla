@@ -1,0 +1,1367 @@
+// ============================================================================
+// 衡 · Heng —— species 物种层（线 2）
+// 化学式 / SMILES 子集 -> 分子图 -> 规范化 -> species_id
+// 语义底稿：核心演算草案 v0.2 §1.2（分子图与规范身份）、§7 P1。
+// 跨线契约：INTERFACE.md 的 SpeciesRecord。
+//
+// ---- 表层写法备案（本线定，变更须同步本注释与 species/README.md）----
+// 1. 化学式（L0 主面）：元素符号 + 计数、圆括号/方括号分组、 hydrate 用
+//    '·'（U+00B7，UTF-8 C2 B7；'•' U+2022 / E2 80 A2 为别名）或 '.' 后跟
+//    数字分隔，后段整体倍数在段首：
+//      H2O / C6H12O6 / Ca(OH)2 / Fe2(SO4)3 / CuSO4·5H2O
+//    顶层前导系数（如 2H2O）不收：系数属方程层，单物种式报错（err 4）。
+// 2. 离子式电荷后缀（本线自定）： '^' + 可选倍数 + '+'/'-'，写在式尾：
+//      SO4^2- / NH4^+ / Fe^3+ / Cl^-
+//    Unicode 上标电荷不收（字节面不稳定），报错 err 8。
+// 3. SMILES 子集：有机子集原子 B C N O P S F Cl Br I + 芳香 b c n o p s；
+//    括号原子 [同位素 符号 @/@@ H计数 电荷]（原子映射 :n 接受但不入身份，
+//    映射是规则层 K 的写法、非物种身份）；键 - = # : ~ / \；分支 ()；
+//    环闭合数字 1-9；'.' 断开组分。不支持：%nn 环闭合、通配 *、
+//    未加括号的 H 原子 —— 一律响亮报错，不静默。
+//
+// ---- species_id 格式（INTERFACE.md 备案口径）----
+//   SMILES/图物种： "canon1:<16 位小写 hex>"，hex = FNV-1a-64(规范序列化)，
+//     规范序列化首字段即 "canon1"，canon 版本在 id 计算域内。
+//   纯化学式物种（无图）： "formula1:<Hill 式>@<电荷>" 占位（INTERFACE 既定
+//     格式）；<FORMULA> 取 Hill 规范式而非输入原文——同组成同 id，且输入
+//     原文在 SLA 字符串 ABI 下无低成本回显路径（见下 ABI 纪律第 4 条）。
+//
+// ---- 字符串 ABI 纪律（本机 SLA 工具链实测，插件 POTENTIAL_ISSUES #15）----
+//   String 形参端到端不可用其字面量借入路径：字面量/切片实参 -> String 形参
+//   在双后端下长度/内容失真（check 过、运行错）。本线的稳定口径：
+//   1. 对外文本入口（parse_*/record/same_species）一律收 ptr（切片值）：
+//      调用方直接传字面量或切片绑定，函数内以 len() 取长、PTR_READ_U8 读字节。
+//   2. (ptr, len) 视图入口（*_view）供持有原始指针的调用方（kb/grade 的
+//      JSON 解析产物等）。
+//   3. String 只在 owned 链路内流转：format 产物/String 返回值 -> String 形参
+//      是可靠的（实测绿）；凡 String 形参函数，实参禁止字面量。
+//   4. String.bytes() 方法调用在 SAB 后端触发 UnknownRegister callee，
+//      全线禁用；字节读一律 STR_PTR/STR_LEN + PTR_READ_U8（语料惯用法）。
+//   5. 规范化标签全程整数（打包键），不走字符串标签链路。
+//
+// ---- 错误码（Result<_, i32> 的 Err 值，全线只报码 + 位置另见 parse 注释）----
+//   1 空输入        2 未知元素      3 括号不配平    4 非法字符/计数位置
+//   5 环未闭合      6 不支持构造    7 分子过大（canon 上限 80 原子）
+//   8 电荷后缀非法  9 化合价溢出（组成计算时键级和为负等内部不一致）
+// ============================================================================
+
+@import "sa_std/vec.sa"
+@import "sa_std/fmt.sai"
+@import "sa_std/str.sla"
+@import "sa_std/ptr.sa"
+@import "sa_std/string.sa"
+
+// 字节访问走语料惯用法：String 先抽 ptr+len（STR_PTR/STR_LEN），再 PTR_READ_U8。
+// （String.bytes() 方法调用在 SAB 后端触发 UnknownRegister callee，本线实测绕行；
+//  String 按值传参会 move，ptr 为 Copy 可反复读。）
+fn raw_byte(sp: ptr, i: i32) -> u8 { return PTR_READ_U8(PTR_BYTE_ADD(sp, i)); }
+
+// ---------------------------------------------------------------------------
+// 元素表（高考常用集，Z = 原子序数）。符号以两字节编码查表：
+// b1 = 0 表示单字母符号。未知组合返回 -1（响亮报错，不默认）。
+// ---------------------------------------------------------------------------
+
+fn z_of_bytes(b0: u8, b1: u8) -> i32 {
+    // 单字母
+    if b1 == 0 {
+        if b0 == 72 { return 1; };    // H
+        if b0 == 66 { return 5; };    // B
+        if b0 == 67 { return 6; };    // C
+        if b0 == 78 { return 7; };    // N
+        if b0 == 79 { return 8; };    // O
+        if b0 == 70 { return 9; };    // F
+        if b0 == 80 { return 15; };   // P
+        if b0 == 83 { return 16; };   // S
+        if b0 == 75 { return 19; };   // K
+        if b0 == 86 { return 23; };   // V
+        if b0 == 89 { return 39; };   // Y
+        if b0 == 73 { return 53; };   // I
+        if b0 == 87 { return 74; };   // W
+        if b0 == 85 { return 92; };   // U
+        return -1;
+    };
+    // 双字母（b0,b1）
+    if b0 == 72 && b1 == 101 { return 2; };    // He
+    if b0 == 76 && b1 == 105 { return 3; };    // Li
+    if b0 == 66 && b1 == 101 { return 4; };    // Be
+    if b0 == 78 && b1 == 101 { return 10; };   // Ne
+    if b0 == 78 && b1 == 97 { return 11; };    // Na
+    if b0 == 77 && b1 == 103 { return 12; };   // Mg
+    if b0 == 65 && b1 == 108 { return 13; };   // Al
+    if b0 == 83 && b1 == 105 { return 14; };   // Si
+    if b0 == 67 && b1 == 108 { return 17; };   // Cl
+    if b0 == 65 && b1 == 114 { return 18; };   // Ar
+    if b0 == 67 && b1 == 97 { return 20; };    // Ca
+    if b0 == 67 && b1 == 114 { return 24; };   // Cr
+    if b0 == 77 && b1 == 110 { return 25; };   // Mn
+    if b0 == 70 && b1 == 101 { return 26; };   // Fe
+    if b0 == 67 && b1 == 111 { return 27; };   // Co
+    if b0 == 78 && b1 == 105 { return 28; };   // Ni
+    if b0 == 67 && b1 == 117 { return 29; };   // Cu
+    if b0 == 90 && b1 == 110 { return 30; };   // Zn
+    if b0 == 66 && b1 == 114 { return 35; };   // Br
+    if b0 == 83 && b1 == 114 { return 38; };   // Sr
+    if b0 == 65 && b1 == 103 { return 47; };   // Ag
+    if b0 == 83 && b1 == 110 { return 50; };   // Sn
+    if b0 == 66 && b1 == 97 { return 56; };    // Ba
+    if b0 == 65 && b1 == 117 { return 79; };   // Au
+    if b0 == 72 && b1 == 103 { return 80; };   // Hg
+    if b0 == 80 && b1 == 98 { return 82; };    // Pb
+    return -1;
+}
+
+// 原子序数 -> 符号（format 产出 owned String；字面量本身是 raw_ptr 不能直返 String）
+fn symbol_of_z(z: i32) -> String {
+    if z == 1 { return format("H"); };
+    if z == 2 { return format("He"); };
+    if z == 3 { return format("Li"); };
+    if z == 4 { return format("Be"); };
+    if z == 5 { return format("B"); };
+    if z == 6 { return format("C"); };
+    if z == 7 { return format("N"); };
+    if z == 8 { return format("O"); };
+    if z == 9 { return format("F"); };
+    if z == 10 { return format("Ne"); };
+    if z == 11 { return format("Na"); };
+    if z == 12 { return format("Mg"); };
+    if z == 13 { return format("Al"); };
+    if z == 14 { return format("Si"); };
+    if z == 15 { return format("P"); };
+    if z == 16 { return format("S"); };
+    if z == 17 { return format("Cl"); };
+    if z == 18 { return format("Ar"); };
+    if z == 19 { return format("K"); };
+    if z == 20 { return format("Ca"); };
+    if z == 23 { return format("V"); };
+    if z == 24 { return format("Cr"); };
+    if z == 25 { return format("Mn"); };
+    if z == 26 { return format("Fe"); };
+    if z == 27 { return format("Co"); };
+    if z == 28 { return format("Ni"); };
+    if z == 29 { return format("Cu"); };
+    if z == 30 { return format("Zn"); };
+    if z == 35 { return format("Br"); };
+    if z == 38 { return format("Sr"); };
+    if z == 39 { return format("Y"); };
+    if z == 47 { return format("Ag"); };
+    if z == 50 { return format("Sn"); };
+    if z == 53 { return format("I"); };
+    if z == 56 { return format("Ba"); };
+    if z == 74 { return format("W"); };
+    if z == 79 { return format("Au"); };
+    if z == 80 { return format("Hg"); };
+    if z == 82 { return format("Pb"); };
+    if z == 92 { return format("U"); };
+    return format("?{}", z);
+}
+
+// 默认价（隐式 H 计算用，脂肪族、按键级和扣减）；金属/稀有气体记 0。
+fn default_valence(z: i32) -> i32 {
+    if z == 5 { return 3; };     // B
+    if z == 6 { return 4; };     // C
+    if z == 7 { return 3; };     // N
+    if z == 8 { return 2; };     // O
+    if z == 9 { return 1; };     // F
+    if z == 15 { return 3; };    // P
+    if z == 16 { return 2; };    // S
+    if z == 17 { return 1; };    // Cl
+    if z == 35 { return 1; };    // Br
+    if z == 53 { return 1; };    // I
+    if z == 14 { return 4; };    // Si
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
+// 字节/字符串小工具
+// ---------------------------------------------------------------------------
+
+fn is_digit(b: u8) -> bool { return b >= 48 && b <= 57; }
+fn is_upper(b: u8) -> bool { return b >= 65 && b <= 90; }
+fn is_lower(b: u8) -> bool { return b >= 97 && b <= 122; }
+fn digit_val(b: u8) -> i32 { return (b as i32) - 48; }
+
+// 字节序字典序比较（规范排序用；String 本身只有 == 可用）
+// 注：字符串字典序比较不设 String 形参辅助函数（缺口 #15 下不可靠）；
+// 需要比较的两处（规范序列化择优）均在使用点以 STR_PTR/STR_LEN 就地展开。
+
+fn str_concat(a: String, b: String) -> String { return format("{}{}", a, b); }
+
+// FNV-1a-64（规范 id 的哈希；确定性、无外部依赖）
+// 偏移基准 14695981039346656037 超出字面量词法上限，以双半拼装：
+// hi(0xCBF29CE4) * 2^32 + lo(0x84222325)，已对 2^64 回绕算术核对一致。
+fn fnv1a64_view(sp: ptr, sn: i32) -> u64 {
+    let hi: u64 = 3421674724;
+    let lo: u64 = 2216829733;
+    let h: u64 = hi * 4294967296 + lo;
+    let i = 0;
+    while i < sn {
+        h = (h ^ (raw_byte(sp, i) as u64)) * 1099511628211;
+        i = i + 1;
+    }
+    return h;
+}
+
+// owned String 入口（实参须为 format 产物/返回值等 owned 串，见文件头 ABI 纪律）
+fn fnv1a64(s: String) -> u64 {
+    return fnv1a64_view(STR_PTR(s), STR_LEN(s));
+}
+
+// 字面量/切片入口
+fn fnv1a64_lit(s: ptr) -> u64 {
+    return fnv1a64_view(s, len(s));
+}
+
+fn hex_digit(d: u64) -> String {
+    if d == 0 { return format("0"); };
+    if d == 1 { return format("1"); };
+    if d == 2 { return format("2"); };
+    if d == 3 { return format("3"); };
+    if d == 4 { return format("4"); };
+    if d == 5 { return format("5"); };
+    if d == 6 { return format("6"); };
+    if d == 7 { return format("7"); };
+    if d == 8 { return format("8"); };
+    if d == 9 { return format("9"); };
+    if d == 10 { return format("a"); };
+    if d == 11 { return format("b"); };
+    if d == 12 { return format("c"); };
+    if d == 13 { return format("d"); };
+    if d == 14 { return format("e"); };
+    return format("f");
+}
+
+fn hex64(v: u64) -> String {
+    let out = format("");
+    let shift = 60;
+    while shift >= 0 {
+        let d = (v >> (shift as u64)) & 15u64;
+        out = str_concat(out, hex_digit(d));
+        shift = shift - 4;
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------------
+// 化学式解析 -> composition（元素计数 + 总电荷）
+// counts 以原子序数为下标（1..=92 有效），是 check 线算相对分子质量的输入。
+// ---------------------------------------------------------------------------
+
+struct FormulaInfo {
+    counts: [i32; 128],
+    charge: i32,
+}
+
+fn formula_info_new() -> FormulaInfo {
+    return FormulaInfo { counts: [0i32; 128], charge: 0 };
+}
+
+fn formula_total_atoms(info: &FormulaInfo) -> i32 {
+    let t = 0;
+    let z = 1;
+    while z < 128 {
+        t = t + info.counts[z];
+        z = z + 1;
+    }
+    return t;
+}
+
+// Hill 记法：有 C 先 C 后 H，其余按符号字典序（本实现以 Z 升序近似字典序的
+// 确定性顺序——注意：Hill 的「其余按字母序」与 Z 序在个别对上不同（如
+// Br(Z35) 与 B(Z5)），此处以 Z 序为规范顺序并备案：输出确定性优先，
+// kb/check 线若需严格 Hill 字母序可在其层重排，composition 本身无序。）
+// 在场元素序数表（Z 升序）：全库唯一的 128 宽迭代点——hill/composition 共用，
+// 避免多个 128 循环与 canon 递归在 SAB 校验器下叠加爆炸（实测拆分绕行）。
+fn present_zs(info: &FormulaInfo) -> Vec<i32> {
+    let out: Vec<i32> = Vec::new();
+    let z = 1;
+    while z < 128 {
+        if info.counts[z] > 0 { out.push(z); };
+        z = z + 1;
+    }
+    return out;
+}
+
+fn hill_formula(info: &FormulaInfo) -> String {
+    let zs = present_zs(info);
+    let out = format("");
+    if info.counts[6] > 0 {
+        out = append_count(out, 6, info.counts[6]);
+        if info.counts[1] > 0 { out = append_count(out, 1, info.counts[1]); };
+        let i = 0;
+        while i < len(zs) {
+            let z = zs[i];
+            if z != 6 && z != 1 { out = append_count(out, z, info.counts[z]); };
+            i = i + 1;
+        }
+    } else {
+        let i = 0;
+        while i < len(zs) {
+            let z = zs[i];
+            out = append_count(out, z, info.counts[z]);
+            i = i + 1;
+        }
+    };
+    return out;
+}
+
+fn append_count(out: String, z: i32, n: i32) -> String {
+    let s = str_concat(out, symbol_of_z(z));
+    if n != 1 { return format("{}{}", s, n); };
+    return s;
+}
+
+// composition 的 JSON 对象（INTERFACE SpeciesRecord 的 composition 字段）
+fn composition_json(info: &FormulaInfo) -> String {
+    let zs = present_zs(info);
+    let out = format("{{");
+    let i = 0;
+    while i < len(zs) {
+        let z = zs[i];
+        if i > 0 { out = str_concat(out, format(",")); };
+        out = str_concat(out, format("\"{}\":{}", symbol_of_z(z), info.counts[z]));
+        i = i + 1;
+    }
+    return str_concat(out, format("}}"));
+}
+
+// --- 解析器状态（递归下降，&P 借用就地推进；源文本以 ptr+len 视图持有）---
+struct FParser {
+    sp: ptr,
+    sn: i32,
+    pos: i32,
+    err: i32,
+}
+
+fn fp_peek(p: &FParser) -> i32 {
+    if p.pos >= p.sn { return -1; };
+    return raw_byte(p.sp, p.pos) as i32;
+}
+
+// 读可选计数（无数字 -> 1；显式 0 -> err 4）
+fn fp_count(p: &FParser) -> i32 {
+    let v = 0;
+    let seen = false;
+    while p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) {
+        v = v * 10 + digit_val(raw_byte(p.sp, p.pos));
+        seen = true;
+        p.pos = p.pos + 1;
+    }
+    if seen != true { return 1; };
+    if v == 0 { p.err = 4; return 0; };
+    return v;
+}
+
+// 解析一段序列并入 acc；terminator: 0=式尾, 41=')', 93=']'
+fn fp_seq(p: &FParser, acc: &FormulaInfo, terminator: i32) {
+    while p.err == 0 {
+        let b = fp_peek(p);
+        if b < 0 {
+            if terminator != 0 { p.err = 3; };
+            return;
+        };
+        if b == terminator { return; };
+        if b == 40 || b == 91 {
+            // 分组 '(' 或 '['
+            let close = if b == 40 { 41 } else { 93 };
+            p.pos = p.pos + 1;
+            let sub = formula_info_new();
+            fp_seq(p, &sub, close);
+            if p.err != 0 { return; };
+            if fp_peek(p) != close { p.err = 3; return; };
+            p.pos = p.pos + 1;
+            let mult = fp_count(p);
+            if p.err != 0 { return; };
+            let z = 1;
+            while z < 128 {
+                acc.counts[z] = acc.counts[z] + sub.counts[z] * mult;
+                z = z + 1;
+            }
+        } else if b == 194 {
+            // '·' U+00B7 的 UTF-8（C2 B7）：水合分隔主写法
+            if terminator != 0 { p.err = 4; return; };
+            if p.pos + 1 >= p.sn { p.err = 4; return; };
+            if raw_byte(p.sp, p.pos + 1) != 183 { p.err = 4; return; };
+            p.pos = p.pos + 2;
+            fp_hydrate_tail(p, acc);
+            return;
+        } else if b == 226 {
+            // '•' U+2022 的 UTF-8 首字节 E2（完整序列 E2 80 A2），别名收
+            if terminator != 0 { p.err = 4; return; };
+            if p.pos + 2 >= p.sn { p.err = 4; return; };
+            if raw_byte(p.sp, p.pos + 1) != 128 || raw_byte(p.sp, p.pos + 2) != 162 { p.err = 4; return; };
+            p.pos = p.pos + 3;
+            fp_hydrate_tail(p, acc);
+            return;
+        } else if b == 46 {
+            // '.' 分隔：仅当其后紧跟数字（段倍数）时作水合分隔，否则非法
+            if terminator != 0 { p.err = 4; return; };
+            if p.pos + 1 >= p.sn || is_digit(raw_byte(p.sp, p.pos + 1)) != true { p.err = 4; return; };
+            p.pos = p.pos + 1;
+            fp_hydrate_tail(p, acc);
+            return;
+        } else if is_upper(raw_byte(p.sp, p.pos)) {
+            let b0 = raw_byte(p.sp, p.pos);
+            let b1: u8 = 0;
+            let adv = 1;
+            if p.pos + 1 < p.sn && is_lower(raw_byte(p.sp, p.pos + 1)) {
+                b1 = raw_byte(p.sp, p.pos + 1);
+                adv = 2;
+            };
+            let z = z_of_bytes(b0, b1);
+            if z < 0 { p.err = 2; return; };
+            p.pos = p.pos + adv;
+            let n = fp_count(p);
+            if p.err != 0 { return; };
+            acc.counts[z] = acc.counts[z] + n;
+        } else if b == 94 {
+            // '^' 电荷后缀只允许在顶层式尾，由 parse_formula 收尾处理
+            return;
+        } else {
+            p.err = 4;
+            return;
+        };
+    }
+}
+
+// 水合段：段首倍数 + 其后整段（至式尾或 '^'）
+fn fp_hydrate_tail(p: &FParser, acc: &FormulaInfo) {
+    let mult = fp_count(p);
+    if p.err != 0 { return; };
+    let sub = formula_info_new();
+    fp_seq(p, &sub, 0);
+    if p.err != 0 { return; };
+    let z = 1;
+    while z < 128 {
+        acc.counts[z] = acc.counts[z] + sub.counts[z] * mult;
+        z = z + 1;
+    }
+}
+
+fn parse_formula(src: ptr) -> Result<FormulaInfo, i32> {
+    return parse_formula_view(src, len(src));
+}
+
+fn parse_formula_view(sp: ptr, sn: i32) -> Result<FormulaInfo, i32> {
+    if sn == 0 { return Err(1); };
+    if is_digit(raw_byte(sp, 0)) { return Err(4); };  // 顶层前导系数不收
+    let p = FParser { sp: sp, sn: sn, pos: 0, err: 0 };
+    let info = formula_info_new();
+    fp_seq(&p, &info, 0);
+    if p.err != 0 { return Err(p.err); };
+    // 可选 '^' 电荷后缀，须在式尾
+    if fp_peek(&p) == 94 {
+        p.pos = p.pos + 1;
+        let mag = fp_count(&p);
+        if p.err != 0 { return Err(8); };
+        let sign = fp_peek(&p);
+        if sign == 43 { info.charge = mag; } else if sign == 45 { info.charge = 0 - mag; } else { return Err(8); };
+        p.pos = p.pos + 1;
+        if p.pos != sn { return Err(8); };
+    } else if p.pos != sn {
+        return Err(4);
+    };
+    if formula_total_atoms(&info) == 0 { return Err(1); };
+    return Ok(info);
+}
+
+// 化学式 -> SpeciesRecord JSON。id 用 INTERFACE 既定的 formula1 占位格式，
+// <FORMULA> 取 Hill 规范式（同组成同 id；不回显输入原文——SLA 无低成本原文
+// 回显路径，且回显口径会使同物种异写法得到不同占位 id，与身份语义相悖）。
+fn formula_record_json(src: ptr) -> Result<String, i32> {
+    let r = parse_formula_view(src, len(src));
+    match r {
+        Ok(info) => {
+            let hf = hill_formula(&info);
+            let id = format("formula1:{}@{}", hf, info.charge);
+            let js = format("{{\"id\":\"{}\",\"formula\":\"{}\",\"composition\":{},\"charge\":{}}}",
+                id, hf, composition_json(&info), info.charge);
+            return Ok(js);
+        },
+        Err(e) => { return Err(e); },
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 分子图（草案 §1.2）：原子节点 + 键边；立体为图标注（手性 @/@@、键 / \）
+// order: 1/2/3 单双三键；9 = 芳香键（ar）；stereo: 0 无，1 = '/'，2 = '\'
+// ---------------------------------------------------------------------------
+
+struct Atom {
+    z: i32,
+    charge: i32,
+    isotope: i32,
+    aromatic: bool,
+    chiral: i32,        // 0 无；1 = @；2 = @@（按书写邻居序）
+    from_bracket: bool, // 括号原子：H 数以书写为准（bracket_h），不推隐式 H
+    bracket_h: i32,
+}
+
+struct Bond {
+    a: i32,
+    b: i32,
+    order: i32,
+    stereo: i32,
+}
+
+struct Graph {
+    atoms: Vec<Atom>,
+    bonds: Vec<Bond>,   // 按创建序保存：键创建序即各原子邻居的书写序（手性奇偶用）
+}
+
+fn graph_new() -> Graph {
+    return Graph { atoms: Vec::new(), bonds: Vec::new() };
+}
+
+fn atom_new(z: i32, aromatic: bool, from_bracket: bool) -> Atom {
+    return Atom { z: z, charge: 0, isotope: 0, aromatic: aromatic, chiral: 0, from_bracket: from_bracket, bracket_h: 0 };
+}
+
+fn graph_degree(g: &Graph, idx: i32) -> i32 {
+    let d = 0;
+    let i = 0;
+    while i < len(g.bonds) {
+        if g.bonds[i].a == idx || g.bonds[i].b == idx { d = d + 1; };
+        i = i + 1;
+    }
+    return d;
+}
+
+fn graph_bond_order_sum(g: &Graph, idx: i32) -> i32 {
+    let s = 0;
+    let i = 0;
+    while i < len(g.bonds) {
+        if g.bonds[i].a == idx || g.bonds[i].b == idx {
+            let o = g.bonds[i].order;
+            if o == 9 { s = s + 1; } else { s = s + o; };
+        };
+        i = i + 1;
+    }
+    return s;
+}
+
+// 隐式 H 数（组成计算用；规则备案于 README）：
+// - 括号原子：书写 H 数（无书写即 0，SMILES 规范）。
+// - 芳香原子：按连接度扣减——c: 3 度，b: 3 度，n/o/s/p: 0（吡啶型；
+//   吡咯型 [nH] 走括号路径）。
+// - 脂肪族：默认价 - 键级和（芳香键计 1），下限 0。
+fn atom_h_count(g: &Graph, idx: i32) -> i32 {
+    let a = g.atoms[idx];
+    if a.from_bracket { return a.bracket_h; };
+    if a.aromatic {
+        if a.z == 6 { let h = 3 - graph_degree(g, idx); if h > 0 { return h; }; return 0; };
+        if a.z == 5 { let h = 3 - graph_degree(g, idx); if h > 0 { return h; }; return 0; };
+        return 0;
+    };
+    let v = default_valence(a.z);
+    if v == 0 { return 0; };
+    let h = v - graph_bond_order_sum(g, idx);
+    if h > 0 { return h; };
+    return 0;
+}
+
+fn graph_composition(g: &Graph) -> FormulaInfo {
+    let info = formula_info_new();
+    let i = 0;
+    while i < len(g.atoms) {
+        let a = g.atoms[i];
+        info.counts[a.z] = info.counts[a.z] + 1;
+        let h = atom_h_count(g, i);
+        if h > 0 { info.counts[1] = info.counts[1] + h; };
+        info.charge = info.charge + a.charge;
+        i = i + 1;
+    }
+    return info;
+}
+
+// --- SMILES 解析器 ---
+struct SParser {
+    sp: ptr,
+    sn: i32,
+    pos: i32,
+    err: i32,
+    g: Graph,
+    cur: i32,               // 当前原子下标，-1 = 无（式首/断开后）
+    stack: [i32; 64],       // 分支栈（定长，深度上限 64）
+    depth: i32,
+    ring_atom: [i32; 10],   // 环闭合槽（下标 1-9）：待闭合原子，-1 空
+    ring_order: [i32; 10],  // 开环时书写的键级，-1 = 默认
+    ring_stereo: [i32; 10],
+    pend_order: i32,        // 待用于下一键的键级，-1 = 默认
+    pend_stereo: i32,
+}
+
+fn sp_default_order(p: &SParser, a: i32, b: i32) -> i32 {
+    if p.g.atoms[a].aromatic && p.g.atoms[b].aromatic { return 9; };
+    return 1;
+}
+
+fn sp_add_bond(p: &SParser, a: i32, b: i32, order: i32, stereo: i32) {
+    p.g.bonds.push(Bond { a: a, b: b, order: order, stereo: stereo });
+}
+
+// 环闭合数字处理（原子刚落位时与主循环裸数字共用；p.cur 为当前原子）
+fn sp_ring_digit(p: &SParser, d: i32) {
+    if d == 0 { p.err = 4; return; };
+    let idx = p.cur;
+    if idx < 0 { p.err = 4; return; };
+    if p.ring_atom[d] < 0 {
+        p.ring_atom[d] = idx;
+        p.ring_order[d] = p.pend_order;
+        p.ring_stereo[d] = p.pend_stereo;
+    } else {
+        let other = p.ring_atom[d];
+        let ord = if p.pend_order >= 0 { p.pend_order } else if p.ring_order[d] >= 0 { p.ring_order[d] } else { sp_default_order(p, other, idx) };
+        let st = if p.pend_stereo != 0 { p.pend_stereo } else { p.ring_stereo[d] };
+        sp_add_bond(p, other, idx, ord, st);
+        p.ring_atom[d] = -1;
+        p.ring_order[d] = -1;
+        p.ring_stereo[d] = 0;
+    };
+    p.pend_order = -1;
+    p.pend_stereo = 0;
+}
+
+// 把新原子接到 cur（或处理式首/断开），然后按书写序处理其后紧跟的环数字。
+fn sp_attach_atom(p: &SParser, atom: Atom) {
+    let idx = len(p.g.atoms);
+    p.g.atoms.push(atom);
+    if p.cur >= 0 {
+        let ord = if p.pend_order >= 0 { p.pend_order } else { sp_default_order(p, p.cur, idx) };
+        sp_add_bond(p, p.cur, idx, ord, p.pend_stereo);
+    };
+    p.cur = idx;
+    p.pend_order = -1;
+    p.pend_stereo = 0;
+    while p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) {
+        let d = digit_val(raw_byte(p.sp, p.pos));
+        p.pos = p.pos + 1;
+        sp_ring_digit(p, d);
+        if p.err != 0 { return; };
+    }
+}
+
+// 括号原子 [...] 解析（pos 在 '[' 之后），返回原子并推进到 ']' 之后。
+fn sp_bracket_atom(p: &SParser) -> Atom {
+    let atom = atom_new(0, false, true);
+    // 同位素
+    let iso = 0;
+    let seen_iso = false;
+    while p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) {
+        iso = iso * 10 + digit_val(raw_byte(p.sp, p.pos));
+        seen_iso = true;
+        p.pos = p.pos + 1;
+    }
+    if seen_iso { atom.isotope = iso; };
+    // 符号
+    if p.pos >= p.sn { p.err = 3; return atom; };
+    let c0 = raw_byte(p.sp, p.pos);
+    if is_lower(c0) {
+        // 芳香小写（b c n o p s）
+        let z = z_of_bytes(c0 - 32, 0);
+        if z < 0 || (z != 5 && z != 6 && z != 7 && z != 8 && z != 15 && z != 16) { p.err = 2; return atom; };
+        atom.z = z;
+        atom.aromatic = true;
+        p.pos = p.pos + 1;
+    } else if is_upper(c0) {
+        let b1: u8 = 0;
+        let adv = 1;
+        if p.pos + 1 < p.sn && is_lower(raw_byte(p.sp, p.pos + 1)) {
+            b1 = raw_byte(p.sp, p.pos + 1);
+            adv = 2;
+        };
+        let z = z_of_bytes(c0, b1);
+        if z < 0 { p.err = 2; return atom; };
+        atom.z = z;
+        p.pos = p.pos + adv;
+    } else {
+        p.err = 6;   // '*' 通配等不支持
+        return atom;
+    };
+    // 手性 @ / @@
+    if p.pos < p.sn && raw_byte(p.sp, p.pos) == 64 {
+        if p.pos + 1 < p.sn && raw_byte(p.sp, p.pos + 1) == 64 {
+            atom.chiral = 2;
+            p.pos = p.pos + 2;
+        } else {
+            atom.chiral = 1;
+            p.pos = p.pos + 1;
+        };
+    };
+    // H 计数
+    if p.pos < p.sn && raw_byte(p.sp, p.pos) == 72 {
+        p.pos = p.pos + 1;
+        if p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) {
+            atom.bracket_h = digit_val(raw_byte(p.sp, p.pos));
+            p.pos = p.pos + 1;
+        } else {
+            atom.bracket_h = 1;
+        };
+    };
+    // 原子映射 :n（接受、不入身份）
+    if p.pos < p.sn && raw_byte(p.sp, p.pos) == 58 {
+        p.pos = p.pos + 1;
+        while p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) { p.pos = p.pos + 1; }
+    };
+    // 电荷：+ / -，可带数字或重复同号
+    if p.pos < p.sn && (raw_byte(p.sp, p.pos) == 43 || raw_byte(p.sp, p.pos) == 45) {
+        let signb = raw_byte(p.sp, p.pos);
+        let sign = if signb == 43 { 1 } else { -1 };
+        p.pos = p.pos + 1;
+        let mag = 1;
+        if p.pos < p.sn && is_digit(raw_byte(p.sp, p.pos)) {
+            mag = digit_val(raw_byte(p.sp, p.pos));
+            p.pos = p.pos + 1;
+        } else if p.pos < p.sn && raw_byte(p.sp, p.pos) == signb {
+            mag = 2;
+            p.pos = p.pos + 1;
+        };
+        atom.charge = sign * mag;
+    };
+    if p.pos >= p.sn || raw_byte(p.sp, p.pos) != 93 { p.err = 3; return atom; };
+    p.pos = p.pos + 1;
+    return atom;
+}
+
+fn parse_smiles(src: ptr) -> Result<Graph, i32> {
+    return parse_smiles_view(src, len(src));
+}
+
+fn parse_smiles_view(sp0: ptr, sn0: i32) -> Result<Graph, i32> {
+    if sn0 == 0 { return Err(1); };
+    let p = SParser {
+        sp: sp0, sn: sn0, pos: 0, err: 0, g: graph_new(), cur: -1,
+        stack: [0i32; 64], depth: 0,
+        ring_atom: [-1i32; 10], ring_order: [-1i32; 10], ring_stereo: [0i32; 10],
+        pend_order: -1, pend_stereo: 0,
+    };
+    while p.pos < p.sn && p.err == 0 {
+        let b = raw_byte(p.sp, p.pos);
+        if b == 45 { p.pend_order = 1; p.pos = p.pos + 1; }              // -
+        else if b == 61 { p.pend_order = 2; p.pos = p.pos + 1; }         // =
+        else if b == 35 { p.pend_order = 3; p.pos = p.pos + 1; }         // #
+        else if b == 58 { p.pend_order = 9; p.pos = p.pos + 1; }         // :
+        else if b == 126 { p.pend_order = 1; p.pos = p.pos + 1; }        // ~ 记为单键
+        else if b == 47 { p.pend_order = 1; p.pend_stereo = 1; p.pos = p.pos + 1; }   // /
+        else if b == 92 { p.pend_order = 1; p.pend_stereo = 2; p.pos = p.pos + 1; }   // backslash
+        else if b == 40 {                                                  // (
+            if p.depth >= 64 { p.err = 3; } else {
+                p.stack[p.depth] = p.cur;
+                p.depth = p.depth + 1;
+            };
+            p.pos = p.pos + 1;
+        }
+        else if b == 41 {                                                  // )
+            if p.depth == 0 { p.err = 3; } else {
+                p.depth = p.depth - 1;
+                p.cur = p.stack[p.depth];
+            };
+            p.pos = p.pos + 1;
+        }
+        else if b == 46 { p.cur = -1; p.pend_order = -1; p.pend_stereo = 0; p.pos = p.pos + 1; }  // .
+        else if b == 37 { p.err = 6; }                                     // % 不支持
+        else if b == 91 {                                                  // [
+            p.pos = p.pos + 1;
+            let atom = sp_bracket_atom(&p);
+            if p.err == 0 { sp_attach_atom(&p, atom); };
+        }
+        else if is_upper(b) {
+            let b1: u8 = 0;
+            let adv = 1;
+            if p.pos + 1 < p.sn && is_lower(raw_byte(p.sp, p.pos + 1)) {
+                b1 = raw_byte(p.sp, p.pos + 1);
+                adv = 2;
+            };
+            let z = z_of_bytes(b, b1);
+            if z < 0 { p.err = 2; } else {
+                p.pos = p.pos + adv;
+                sp_attach_atom(&p, atom_new(z, false, false));
+            };
+        }
+        else if is_lower(b) {
+            // 芳香原子 b c n o p s（其余小写非法，如 'l' 不会单独出现）
+            let z = z_of_bytes(b - 32, 0);
+            if z < 0 || (z != 5 && z != 6 && z != 7 && z != 8 && z != 15 && z != 16) { p.err = 2; } else {
+                p.pos = p.pos + 1;
+                sp_attach_atom(&p, atom_new(z, true, false));
+            };
+        }
+        else if is_digit(b) {
+            // 键符号后跟的环数字（如 C-1）；原子后紧跟的数字已在 attach 内消费
+            p.pos = p.pos + 1;
+            sp_ring_digit(&p, digit_val(b));
+        }
+        else { p.err = 4; };
+    }
+    if p.err != 0 { return Err(p.err); };
+    if p.depth != 0 { return Err(3); };
+    let d = 1;
+    while d < 10 {
+        if p.ring_atom[d] >= 0 { return Err(5); };
+        d = d + 1;
+    }
+    if len(p.g.atoms) == 0 { return Err(1); };
+    if len(p.g.atoms) > 80 { return Err(7); };
+    perceive_aromatic(&p.g);
+    return Ok(p.g);
+}
+
+// ---------------------------------------------------------------------------
+// 芳香性感知（有界）：在原始键级上枚举 5-7 元环（每环以最小下标原子为根、
+// 两方向各得一次），按 π 规则判定后统一标记——Kekulé 写法无关化在此完成。
+// 规则：6 元环 3 双键；5 元环 2 双键 + 一个环内两键皆单键的 O/S/N 原子；
+// 7 元环 3 双键 + 一个带 +1 电荷的原子（䓬鎓型）。原子限 C/N/O/S/P。
+// ---------------------------------------------------------------------------
+
+fn bond_index_between(g: &Graph, a: i32, b: i32) -> i32 {
+    let i = 0;
+    while i < len(g.bonds) {
+        if (g.bonds[i].a == a && g.bonds[i].b == b) || (g.bonds[i].a == b && g.bonds[i].b == a) { return i; };
+        i = i + 1;
+    }
+    return -1;
+}
+
+fn perceive_aromatic(g: &Graph) {
+    let n = len(g.atoms);
+    if n < 5 { return; };
+    // 收集候选环：流式存储（每环 [长度, 原子...] 连续排布）
+    let cyc: Vec<i32> = Vec::new();
+    let s = 0;
+    while s < n {
+        let path0: Vec<i32> = Vec::new();
+        path0.push(s);
+        cyc = ring_dfs(g, s, s, path0, cyc);
+        s = s + 1;
+    }
+    // 逐环判定（在原始键级上），标记先攒后落
+    let mark_atom: [bool; 80] = [false; 80];
+    let mark_bond: [bool; 256] = [false; 256];
+    let p = 0;
+    while p < len(cyc) {
+        let L = cyc[p];
+        if cycle_is_aromatic(g, &cyc, p + 1, L) {
+            let k = 0;
+            while k < L {
+                mark_atom[cyc[p + 1 + k]] = true;
+                let a1 = cyc[p + 1 + k];
+                let a2 = cyc[p + 1 + (k + 1) % L];
+                let bi = bond_index_between(g, a1, a2);
+                if bi >= 0 { mark_bond[bi] = true; };
+                k = k + 1;
+            }
+        };
+        p = p + 1 + L;
+    }
+    let i = 0;
+    while i < n {
+        if mark_atom[i] {
+            let a = g.atoms[i];
+            a.aromatic = true;
+            g.atoms[i] = a;
+        };
+        i = i + 1;
+    }
+    let j = 0;
+    while j < len(g.bonds) {
+        if mark_bond[j] {
+            let b = g.bonds[j];
+            b.order = 9;
+            g.bonds[j] = b;
+        };
+        j = j + 1;
+    }
+}
+
+// 从 start 出发、只经 > start 的原子、路径长 5-7 时闭合回 start 的环枚举。
+// 纯值语义（path/out 按值传递）：&Vec 出参 + 递归在 SAB 校验器下触发
+// PhiStateConflict，本线实测改值语义绕行。
+fn ring_dfs(g: &Graph, start: i32, cur: i32, path: Vec<i32>, out: Vec<i32>) -> Vec<i32> {
+    let plen = len(path);
+    if plen >= 5 {
+        if bond_index_between(g, cur, start) >= 0 {
+            out.push(plen);
+            let k = 0;
+            while k < plen { out.push(path[k]); k = k + 1; }
+        };
+    };
+    if plen >= 7 { return out; };
+    let bi = 0;
+    while bi < len(g.bonds) {
+        let bd = g.bonds[bi];
+        let nxt = -1;
+        if bd.a == cur { nxt = bd.b; } else if bd.b == cur { nxt = bd.a; };
+        if nxt > start {
+            let seen = false;
+            let k = 0;
+            while k < plen { if path[k] == nxt { seen = true; }; k = k + 1; }
+            if seen != true {
+                let np: Vec<i32> = Vec::new();
+                let m = 0;
+                while m < plen { np.push(path[m]); m = m + 1; }
+                np.push(nxt);
+                out = ring_dfs(g, start, nxt, np, out);
+            };
+        };
+        bi = bi + 1;
+    }
+    return out;
+}
+
+fn cycle_is_aromatic(g: &Graph, flat: &Vec<i32>, base: i32, L: i32) -> bool {
+    if L < 5 || L > 7 { return false; };
+    let dbl = 0;
+    let has_lone = false;   // 5 元环：环内两键皆单的 O/S/N
+    let has_pos = false;    // 7 元环：带 + 电荷原子
+    let k = 0;
+    while k < L {
+        let a = flat[base + k];
+        let z = g.atoms[a].z;
+        if z != 6 && z != 7 && z != 8 && z != 16 && z != 15 { return false; };
+        if g.atoms[a].charge == 1 { has_pos = true; };
+        let a2 = flat[base + (k + 1) % L];
+        let bi = bond_index_between(g, a, a2);
+        if bi < 0 { return false; };
+        let o = g.bonds[bi].order;
+        if o == 2 { dbl = dbl + 1; } else if o != 1 && o != 9 { return false; };
+        k = k + 1;
+    }
+    if L == 5 {
+        let m = 0;
+        while m < L {
+            let a = flat[base + m];
+            let z = g.atoms[a].z;
+            if z == 8 || z == 16 || z == 7 {
+                let prev = flat[base + (m + L - 1) % L];
+                let next = flat[base + (m + 1) % L];
+                let b1 = bond_index_between(g, a, prev);
+                let b2 = bond_index_between(g, a, next);
+                if b1 >= 0 && b2 >= 0 && g.bonds[b1].order == 1 && g.bonds[b2].order == 1 { has_lone = true; };
+            };
+            m = m + 1;
+        }
+    };
+    if L == 6 { return dbl == 3; };
+    if L == 5 { return dbl == 2 && has_lone; };
+    return dbl == 3 && has_pos;
+}
+
+// ---------------------------------------------------------------------------
+// 规范化：WL 细化（整数标签）+ 个体化-细化回溯，取字典序最小序列化（canon1）
+// 标签全程整数：基键打包 + 签名排序分组编号（字符串标签链路在缺口 #15 下
+// 不可靠，且整数化更快）。签名邻居表定长 8 槽（自身 + 至多 7 邻居键）：
+// 度 >7 的原子细化较粗，但回溯分支覆盖全部候选，规范不变性不受影响。
+// ---------------------------------------------------------------------------
+
+// 原子基键打包：z(7b) | charge+8(5b) | isotope(12b) | aromatic(1b) | hcount(5b)
+fn pack_key(z: i32, charge: i32, isotope: i32, arom: i32, h: i32) -> i64 {
+    let k: i64 = z as i64;
+    k = k * 32 + ((charge + 8) as i64);
+    k = k * 4096 + (isotope as i64);
+    k = k * 2 + (arom as i64);
+    k = k * 32 + (h as i64);
+    return k;
+}
+
+fn atom_base_key(g: &Graph, i: i32) -> i64 {
+    let a = g.atoms[i];
+    let ar = if a.aromatic { 1 } else { 0 };
+    return pack_key(a.z, a.charge, a.isotope, ar, atom_h_count(g, i));
+}
+
+// 邻居下标（键创建序 = 书写序，单趟扫描 bonds 即得，手性奇偶以此为准）
+fn neighbors_of(g: &Graph, idx: i32) -> Vec<i32> {
+    let out: Vec<i32> = Vec::new();
+    let i = 0;
+    while i < len(g.bonds) {
+        if g.bonds[i].a == idx { out.push(g.bonds[i].b); };
+        if g.bonds[i].b == idx { out.push(g.bonds[i].a); };
+        i = i + 1;
+    }
+    return out;
+}
+
+struct CanonState {
+    order: [i32; 80],
+    best: String,
+    best_sp: ptr,
+    best_sn: i32,
+    best_set: bool,
+    leaves: i32,
+    cap_hit: bool,
+    // refine  scratch（定长数组、零 Vec 分配，压 SAB 直降权重；labels 每帧
+    // 由 canon_search 拷入本帧数组保存，scratch 本身不跨递归帧持有语义）
+    labels: [i64; 80],
+    sig: [i64; 640],
+    idxs: [i32; 80],
+    nlab: [i64; 24],
+    nbrs: [i32; 24],
+}
+
+fn is_pinned(st: &CanonState, depth: i32, a: i32) -> bool {
+    let k = 0;
+    while k < depth { if st.order[k] == a { return true; }; k = k + 1; }
+    return false;
+}
+
+fn sig_less(st: &CanonState, a: i32, b: i32) -> bool {
+    let s = 0;
+    while s < 8 {
+        let x = st.sig[a * 8 + s];
+        let y = st.sig[b * 8 + s];
+        if x != y { return x < y; };
+        s = s + 1;
+    }
+    return false;
+}
+
+fn sig_eq(st: &CanonState, a: i32, b: i32) -> bool {
+    let s = 0;
+    while s < 8 {
+        if st.sig[a * 8 + s] != st.sig[b * 8 + s] { return false; };
+        s = s + 1;
+    }
+    return true;
+}
+
+// WL 细化（结果写 st.labels）：钉住原子键为 -(k+1) 唯一负值；其余按
+// （键, 邻居键排序表）签名分组、按签名字典序重编号为正整数，至未钉
+// 分组数稳定。邻居经 bonds 单趟扫描收集（度上限 24，与签名 8 槽口径一致：
+// 超出 7 的邻居键不入签名，细化较粗、回溯兜底）。
+fn refine_labels(g: &Graph, base: &Vec<i64>, st: &CanonState, depth: i32) {
+    let n = len(g.atoms);
+    let i = 0;
+    while i < n { st.labels[i] = base[i]; i = i + 1; }
+    let k = 0;
+    while k < depth { st.labels[st.order[k]] = 0 - ((k + 1) as i64); k = k + 1; }
+    let prev_groups = -1;
+    let round = 0;
+    while round < n {
+        // 签名表：每原子 8 槽（自身键 + 至多 7 个邻居键排序，缺位填大值）
+        let a = 0;
+        while a < n {
+            let dn = 0;
+            let bi = 0;
+            while bi < len(g.bonds) {
+                let bd = g.bonds[bi];
+                let nxt = -1;
+                if bd.a == a { nxt = bd.b; } else if bd.b == a { nxt = bd.a; };
+                if nxt >= 0 && dn < 24 {
+                    st.nbrs[dn] = nxt;
+                    st.nlab[dn] = st.labels[nxt];
+                    dn = dn + 1;
+                };
+                bi = bi + 1;
+            }
+            let x = 0;
+            while x < dn {
+                let y = x + 1;
+                while y < dn {
+                    if st.nlab[y] < st.nlab[x] { let t = st.nlab[x]; st.nlab[x] = st.nlab[y]; st.nlab[y] = t; };
+                    y = y + 1;
+                }
+                x = x + 1;
+            }
+            st.sig[a * 8] = st.labels[a];
+            let s2 = 0;
+            while s2 < 7 {
+                if s2 < dn { st.sig[a * 8 + 1 + s2] = st.nlab[s2]; } else { st.sig[a * 8 + 1 + s2] = 4294967295; };
+                s2 = s2 + 1;
+            }
+            a = a + 1;
+        }
+        // 未钉原子下标按签名排序（插入排序）
+        let u = 0;
+        let a2 = 0;
+        while a2 < n {
+            if is_pinned(st, depth, a2) != true { st.idxs[u] = a2; u = u + 1; };
+            a2 = a2 + 1;
+        }
+        let x2 = 0;
+        while x2 < u {
+            let y2 = x2 + 1;
+            while y2 < u {
+                if sig_less(st, st.idxs[y2], st.idxs[x2]) { let t = st.idxs[x2]; st.idxs[x2] = st.idxs[y2]; st.idxs[y2] = t; };
+                y2 = y2 + 1;
+            }
+            x2 = x2 + 1;
+        }
+        // 分组编号（先快照旧标签再回写，避免同轮污染）
+        let snap: [i64; 80] = [0i64; 80];
+        let a3 = 0;
+        while a3 < n { snap[a3] = st.labels[a3]; a3 = a3 + 1; }
+        let gid = 0;
+        let posn = 0;
+        while posn < u {
+            if posn == 0 || sig_eq(st, st.idxs[posn], st.idxs[posn - 1]) != true { gid = gid + 1; };
+            snap[st.idxs[posn]] = gid as i64;
+            posn = posn + 1;
+        }
+        let a4 = 0;
+        while a4 < n { st.labels[a4] = snap[a4]; a4 = a4 + 1; }
+        if gid == prev_groups { return; };
+        prev_groups = gid;
+        round = round + 1;
+    }
+}
+
+fn canon_search(g: &Graph, base: &Vec<i64>, st: &CanonState, depth: i32) {
+    if st.cap_hit { return; };
+    let n = len(g.atoms);
+    if depth == n {
+        st.leaves = st.leaves + 1;
+        if st.leaves > 200000 { st.cap_hit = true; return; };
+        let ser = canon_serialize_with(g, st);
+        let sp2 = STR_PTR(ser);
+        let sn2: i32 = STR_LEN(ser);
+        let better = false;
+        if st.best_set != true {
+            better = true;
+        } else {
+            let m = if sn2 < st.best_sn { sn2 } else { st.best_sn };
+            let i = 0;
+            let decided = false;
+            while i < m && decided != true {
+                let x = raw_byte(sp2, i);
+                let y = raw_byte(st.best_sp, i);
+                if x != y { better = x < y; decided = true; };
+                i = i + 1;
+            }
+            if decided != true { better = sn2 < st.best_sn; };
+        };
+        if better {
+            st.best = ser;
+            st.best_sp = sp2;
+            st.best_sn = sn2;
+            st.best_set = true;
+        } else {
+            !ser;
+        };
+        return;
+    };
+    refine_labels(g, base, st, depth);
+    // 本帧标签快照（st.labels 会被子帧 refine 覆写，分支迭代须持本帧副本）
+    let mine: [i64; 80] = [0i64; 80];
+    let ci = 0;
+    while ci < n { mine[ci] = st.labels[ci]; ci = ci + 1; }
+    let min_label: i64 = 4294967295;
+    let i = 0;
+    while i < n {
+        if is_pinned(st, depth, i) != true && mine[i] < min_label { min_label = mine[i]; };
+        i = i + 1;
+    }
+    let c = 0;
+    while c < n {
+        if is_pinned(st, depth, c) != true && mine[c] == min_label {
+            st.order[depth] = c;
+            canon_search(g, base, st, depth + 1);
+            st.order[depth] = -1;
+            if st.cap_hit { return; };
+        };
+        c = c + 1;
+    }
+}
+
+// 手性最终标签：书写邻序 -> 规范邻序的置换奇偶决定是否翻转 @/@@。
+// 括号 H 在书写序中位于「前驱原子之后」；其规范秩以 H 基键在邻居基键
+// 中的排位计（v0.1 备案口径，见 GAPS）。
+fn chiral_final_tag(g: &Graph, base: &Vec<i64>, pos: &Vec<i32>, a: i32) -> i32 {
+    let atom = g.atoms[a];
+    let tag = atom.chiral;
+    if tag == 0 { return 0; };
+    let w = neighbors_of(g, a);
+    let deg = len(w);
+    let wseq: Vec<i32> = Vec::new();
+    let h_pos = if atom.from_bracket && atom.bracket_h > 0 { if deg > 0 { 1 } else { 0 } } else { -1 };
+    let wi = 0;
+    while wi < deg {
+        if h_pos == wi { wseq.push(-7); };
+        wseq.push(w[wi]);
+        wi = wi + 1;
+    }
+    if h_pos == deg { wseq.push(-7); };
+    let h_key = pack_key(1, 0, 0, 0, 0);
+    let h_rank = 0;
+    let m = 0;
+    while m < deg {
+        if base[w[m]] < h_key { h_rank = h_rank + 1; };
+        m = m + 1;
+    }
+    let keys: Vec<i32> = Vec::new();
+    let q = 0;
+    while q < len(wseq) {
+        if wseq[q] == -7 { keys.push(2 * h_rank - 1); } else { keys.push(2 * pos[wseq[q]]); };
+        q = q + 1;
+    }
+    let inv = 0;
+    let x = 0;
+    while x < len(keys) {
+        let y = x + 1;
+        while y < len(keys) {
+            if keys[x] > keys[y] { inv = inv + 1; };
+            y = y + 1;
+        }
+        x = x + 1;
+    }
+    if inv % 2 == 1 { return 3 - tag; };
+    return tag;
+}
+
+fn canon_serialize_with(g: &Graph, st: &CanonState) -> String {
+    let n = len(g.atoms);
+    let pos: Vec<i32> = Vec::new();
+    let base: Vec<i64> = Vec::new();
+    let i = 0;
+    while i < n {
+        pos.push(0);
+        base.push(atom_base_key(g, i));
+        i = i + 1;
+    }
+    let i2 = 0;
+    while i2 < n { pos[st.order[i2]] = i2; i2 = i2 + 1; }
+    let out = format("canon1|");
+    let k = 0;
+    while k < n {
+        let a = st.order[k];
+        let at = g.atoms[a];
+        let ar = if at.aromatic { 1 } else { 0 };
+        let tag = chiral_final_tag(g, &base, &pos, a);
+        out = str_concat(out, format("{}:{}:{}:{}:{}:{};", at.z, at.charge, at.isotope, ar, atom_h_count(g, a), tag));
+        k = k + 1;
+    }
+    out = str_concat(out, format("|"));
+    let bi: Vec<i32> = Vec::new();
+    let bj: Vec<i32> = Vec::new();
+    let bo: Vec<i32> = Vec::new();
+    let bs: Vec<i32> = Vec::new();
+    let m = 0;
+    while m < len(g.bonds) {
+        let bd = g.bonds[m];
+        let x = pos[bd.a];
+        let y = pos[bd.b];
+        let stt = bd.stereo;
+        if x < y {
+            bi.push(x); bj.push(y); bo.push(bd.order); bs.push(stt);
+        } else {
+            bi.push(y); bj.push(x); bo.push(bd.order);
+            if stt != 0 { bs.push(3 - stt); } else { bs.push(0); };
+        };
+        m = m + 1;
+    }
+    let nb = len(bi);
+    let s1 = 0;
+    while s1 < nb {
+        let s2 = s1 + 1;
+        while s2 < nb {
+            let swap = bi[s2] < bi[s1] || (bi[s2] == bi[s1] && (bj[s2] < bj[s1] || (bj[s2] == bj[s1] && bo[s2] < bo[s1])));
+            if swap {
+                let t = bi[s1]; bi[s1] = bi[s2]; bi[s2] = t;
+                let t2 = bj[s1]; bj[s1] = bj[s2]; bj[s2] = t2;
+                let t3 = bo[s1]; bo[s1] = bo[s2]; bo[s2] = t3;
+                let t4 = bs[s1]; bs[s1] = bs[s2]; bs[s2] = t4;
+            };
+            s2 = s2 + 1;
+        }
+        s1 = s1 + 1;
+    }
+    let q = 0;
+    while q < nb {
+        out = str_concat(out, format("{}-{}:{}:{};", bi[q], bj[q], bo[q], bs[q]));
+        q = q + 1;
+    }
+    return out;
+}
+
+// 规范序列化（canon cap 命中时退化为细化标签序，确定性但不保证同构不变，见 GAPS）
+fn canon_serialize(g: &Graph) -> String {
+    let n = len(g.atoms);
+    let base: Vec<i64> = Vec::new();
+    let i = 0;
+    while i < n { base.push(atom_base_key(g, i)); i = i + 1; }
+    let empty = format("");
+    let esp = STR_PTR(empty);
+    let st = CanonState {
+        order: [-1i32; 80], best: empty, best_sp: esp, best_sn: 0,
+        best_set: false, leaves: 0, cap_hit: false,
+        labels: [0i64; 80], sig: [0i64; 640], idxs: [0i32; 80],
+        nlab: [0i64; 24], nbrs: [0i32; 24],
+    };
+    canon_search(g, &base, &st, 0);
+    if st.best_set { return st.best; };
+    // cap_hit 退化路径：按（细化标签, 下标）定序（depth=0 时 refine 不读 order）
+    refine_labels(g, &base, &st, 0);
+    let used: [bool; 80] = [false; 80];
+    let posn = 0;
+    while posn < n {
+        let pick = -1;
+        let j = 0;
+        while j < n {
+            if used[j] != true && (pick < 0 || st.labels[j] < st.labels[pick]) { pick = j; };
+            j = j + 1;
+        }
+        st.order[posn] = pick;
+        used[pick] = true;
+        posn = posn + 1;
+    }
+    return canon_serialize_with(g, &st);
+}
+
+fn species_id(g: &Graph) -> String {
+    return format("canon1:{}", hex64(fnv1a64(canon_serialize(g))));
+}
+
+// SMILES -> canon id（独立小函数体：canon 重代码隔离在此与 gid 同形态的
+// 薄封装内，避免与 hill/composition_json 的字符串构建在同一函数体叠加——
+// 三者同体时 SAB 直降内存爆炸，本线实测拆分绕行）
+fn smiles_id_of(src: ptr) -> Result<String, i32> {
+    let r = parse_smiles(src);
+    match r {
+        Ok(g) => { return Ok(species_id(&g)); },
+        Err(e) => { return Err(e); },
+    }
+}
+
+// SMILES -> SpeciesRecord JSON（INTERFACE 契约）
+fn smiles_record_json(src: ptr) -> Result<String, i32> {
+    let info = formula_info_new();
+    let err = 0;
+    let r1 = parse_smiles(src);
+    match r1 {
+        Ok(g) => { info = graph_composition(&g); },
+        Err(e) => { err = e; },
+    };
+    if err != 0 { return Err(err); };
+    let id = format("");
+    let r2 = smiles_id_of(src);
+    match r2 {
+        Ok(v) => { id = v; },
+        Err(e) => { err = e; },
+    };
+    if err != 0 { return Err(err); };
+    let js = format("{{\"id\":\"{}\",\"formula\":\"{}\",\"composition\":{},\"charge\":{}}}",
+        id, hill_formula(&info), composition_json(&info), info.charge);
+    return Ok(js);
+}
+
+// 两 SMILES 是否同物种（species_id_eq 断言的底层判定）
+// 注：嵌套 match（臂尾内层 match）在 SAB 直降下 FallthroughForbidden，
+// 故用两段单层 match 赋值形展开（本线实测绕行）。
+fn smiles_same_species(a: ptr, b: ptr) -> Result<bool, i32> {
+    let ga = graph_new();
+    let gb = graph_new();
+    let err = 0;
+    let ra = parse_smiles(a);
+    match ra {
+        Ok(g) => { ga = g; },
+        Err(e) => { err = e; },
+    };
+    if err != 0 { return Err(err); };
+    let rb = parse_smiles(b);
+    match rb {
+        Ok(g) => { gb = g; },
+        Err(e) => { err = e; },
+    };
+    if err != 0 { return Err(err); };
+    let ia = species_id(&ga);
+    let ib = species_id(&gb);
+    return Ok(str_eq(ia, ib));
+}
