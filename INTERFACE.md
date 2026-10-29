@@ -9,7 +9,7 @@
 - `lang/` L0/L1 语言面：学生表层语法 → 内核模型；教学级报错话术。
 
 ## 跨线数据契约（v0.1，JSON 为线间交换格式）
-- **SpeciesRecord**：`{ "id": string, "formula": string, "composition": {元素符号: 计数}, "charge": int }`。`id` 由 species 线定义：`canon` 版本前缀 + 规范哈希，如 `"canon1:<hex>"`；在 canon 就绪前，formula 级 id 用 `"formula1:<FORMULA>@<charge>"` 占位，格式须在本文件备案后替换。
+- **SpeciesRecord**：`{ "id": string, "formula": string, "composition": {元素符号: 计数}, "charge": int }`。`id` 由 species 线定义：`canon` 版本前缀 + 规范哈希，如 `"canon1:<hex>"`；在 canon 就绪前，formula 级 id 用 `"formula1:<FORMULA>@<charge>"` 占位，格式须在本文件备案后替换。规范公式串 = 严格 Hill 序（C、H、其余字母序）；原文仅作数据/题面保留，跨组件比对与身份一律走规范形或解析 composition。
 - **EquationRecord**：`{ "lhs": [[species_id 或 formula, 系数], ...], "rhs": [...], "arrow": "->" | "<=>" }`。
 - **Quantity**：`{ "value": rational 字符串 "p/q" 或十进制字符串, "unit": string }`；量纲以 7 元整数向量表示（kg, m, s, A, K, mol, cd 的指数），found 线定义单位表。
 - **Assertion（v0.1 三种）**：`{"kind":"balanced","equation":EquationRecord}`；`{"kind":"value_eq","expr":string,"expect":Quantity,"tol":string}`；`{"kind":"species_id_eq","a":string,"b":string}`（两式同物种）。

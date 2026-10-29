@@ -189,9 +189,11 @@
   序（确定性，但不保证同构不变）；高考量级分子（≤80 原子、低对称性）
   正常路径远离上限。签名邻居表定长 8 槽，度 >7 原子细化较粗（分支回溯
   兜底，不变性不受影响、仅变慢）。
-- **Hill 顺序为 Z 升序近似**：与严格 Hill 字母序在个别元素对（如 Br/B）
-  上不同；已在 species.sla 注释与 README 备案，composition（无序 JSON）
-  不受影响，kb/check 若需严格 Hill 可在其层重排。
+- **Hill 顺序为 Z 升序近似**（已关闭，2026-10-30）：`hill_formula` 已改
+  严格 Hill（C rank 0、H rank 1、其余符号字节序，与 grade 线 hill_rank
+  同口径；Jev 裁决 strict_hill_everywhere 0.86），§3 分歧 5 例
+  （Al2O3 / Ca(OH)2 / SCl2 / NaOH / Fe2(SO4)3）已逐一对齐 grade 输出；
+  composition（无序 JSON）仍按 Z 序出键，不受影响。
 - **未做与 RDKit 的差分对照**：canon 等价性以本线语料的构造性用例为准
   （链/环/芳香/手性/盐/电荷/错误面）；系统性差分待后续以 kb 物种集为
   输入批量对拍（需 RDKit 环境，候主会话排期）。

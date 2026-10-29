@@ -265,10 +265,11 @@ fn formula_total_atoms(info: &FormulaInfo) -> i32 {
     return t;
 }
 
-// Hill 记法：有 C 先 C 后 H，其余按符号字典序（本实现以 Z 升序近似字典序的
-// 确定性顺序——注意：Hill 的「其余按字母序」与 Z 序在个别对上不同（如
-// Br(Z35) 与 B(Z5)），此处以 Z 序为规范顺序并备案：输出确定性优先，
-// kb/check 线若需严格 Hill 字母序可在其层重排，composition 本身无序。）
+// Hill 规范序（严格 Hill，全仓统一口径，Jev 裁决 strict_hill_everywhere
+// 0.86，2026-10-30）：C rank 0、H rank 1、其余元素按符号字节序——与 grade
+// 线 hill_rank 同一口径。旧实现以 Z 升序近似字母序（如 Al2O3 旧作 O3Al2、
+// SCl2 旧作 SCl2），与严格 Hill 在多对元素上不同，自本版起废止；
+// composition 本身无序（JSON 对象），不随本函数变。
 // 在场元素序数表（Z 升序）：全库唯一的 128 宽迭代点——hill/composition 共用，
 // 避免多个 128 循环与 canon 递归在 SAB 校验器下叠加爆炸（实测拆分绕行）。
 fn present_zs(info: &FormulaInfo) -> Vec<i32> {
@@ -281,26 +282,58 @@ fn present_zs(info: &FormulaInfo) -> Vec<i32> {
     return out;
 }
 
+// 符号字节序比较：symbol(za) < symbol(zb)（逐字节比，短串缺字节记 0 字节序）
+fn symbol_less(za: i32, zb: i32) -> bool {
+    let sa = symbol_of_z(za);
+    let sb = symbol_of_z(zb);
+    let pa = STR_PTR(sa);
+    let pb = STR_PTR(sb);
+    let la = STR_LEN(sa) as i32;
+    let lb = STR_LEN(sb) as i32;
+    let i = 0;
+    while i < la && i < lb {
+        let ba = raw_byte(pa, i) as i32;
+        let bb = raw_byte(pb, i) as i32;
+        if ba != bb { return ba < bb; };
+        i = i + 1;
+    }
+    return la < lb;
+}
+
 fn hill_formula(info: &FormulaInfo) -> String {
     let zs = present_zs(info);
+    let rest: Vec<i32> = Vec::new();
+    let i = 0;
+    while i < len(zs) {
+        let z = zs[i];
+        if z != 6 && z != 1 { rest.push(z); };
+        i = i + 1;
+    }
+    // rest 按符号字节序选择排序（在场元素数小，O(n^2) 足够）
+    let a = 0;
+    while a < len(rest) {
+        let m = a;
+        let b = a + 1;
+        while b < len(rest) {
+            if symbol_less(rest[b], rest[m]) { m = b; };
+            b = b + 1;
+        }
+        if m != a {
+            let t = rest[a];
+            rest[a] = rest[m];
+            rest[m] = t;
+        };
+        a = a + 1;
+    }
     let out = format("");
-    if info.counts[6] > 0 {
-        out = append_count(out, 6, info.counts[6]);
-        if info.counts[1] > 0 { out = append_count(out, 1, info.counts[1]); };
-        let i = 0;
-        while i < len(zs) {
-            let z = zs[i];
-            if z != 6 && z != 1 { out = append_count(out, z, info.counts[z]); };
-            i = i + 1;
-        }
-    } else {
-        let i = 0;
-        while i < len(zs) {
-            let z = zs[i];
-            out = append_count(out, z, info.counts[z]);
-            i = i + 1;
-        }
-    };
+    if info.counts[6] > 0 { out = append_count(out, 6, info.counts[6]); };
+    if info.counts[1] > 0 { out = append_count(out, 1, info.counts[1]); };
+    let j = 0;
+    while j < len(rest) {
+        let z = rest[j];
+        out = append_count(out, z, info.counts[z]);
+        j = j + 1;
+    }
     return out;
 }
 
