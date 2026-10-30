@@ -1,0 +1,52 @@
+// repro_vecset_loop.sla —— PhiStateConflict(1015) 最小复现候选：
+// 结构体 Vec 字段在 while 循环内做索引赋值（doc.next[last] = val 形态）。
+// 期望：编译运行并打印 REPRO sum=36；实际（sla 6004af4 + companion sa）：
+// SAB 验证器 trap 1015（loop-head phi: Composite vs Uninitialized）。
+@import "sa_std/vec.sa"
+@import "sa_std/io/print.sai"
+
+struct Doc {
+    next: Vec<i64>,
+    child: Vec<i64>,
+}
+
+fn fill(doc: &Doc, count: u64) -> i64 {
+    let last: i64 = -1;
+    let i: u64 = 0;
+    while i < count {
+        let val: i64 = (i as i64) + 1;
+        if last < 0 {
+            doc.child[0] = val;
+        } else {
+            doc.next[last as u64] = val;
+        };
+        last = val;
+        i = i + 1;
+    }
+    return last;
+}
+
+fn main() -> i32 {
+    let doc = Doc { next: Vec::new(), child: Vec::new() };
+    let k: u64 = 0;
+    while k < 8 {
+        doc.next.push(0);
+        doc.child.push(0);
+        k = k + 1;
+    }
+    let r: i64 = fill(&doc, 6);
+    let b = [0u8; 32];
+    let n: u64 = 0;
+    b[n] = 82; n = n + 1;
+    b[n] = 69; n = n + 1;
+    b[n] = 80; n = n + 1;
+    b[n] = 82; n = n + 1;
+    b[n] = 79; n = n + 1;
+    b[n] = 32; n = n + 1;
+    b[n] = 114; n = n + 1;
+    b[n] = 61; n = n + 1;
+    if r == 6 { b[n] = 54; n = n + 1; } else { b[n] = 63; n = n + 1; };
+    b[n] = 10; n = n + 1;
+    sa_print_bytes(&b, n);
+    return 0;
+}

@@ -32,3 +32,16 @@ JSON 解析器为 `tools/json.sla`（自带测试 `tools/test_json.sla`）；原
 | 蔗糖水解（eq-sr-052）右端 2×C6H12O6 | 葡萄糖与果糖互为同分异构体、分子式相同，以系数 2 表示并在 note 中写明 |
 | 偏铝酸钠表述 | 新旧教材表述不一（NaAlO2 / Na[Al(OH)4]），本集回避该物种、统一用离子 Al(OH)4− 建模 |
 | 原子量精确列个别元素（如 Pb 207.2） | 为 IUPAC 区间值的代表值，课本计算以取整列为准 |
+
+## 并发校验（期二首项）
+
+`tools/validate_kb.sla` 的阶段 2–5 已并发化（设计见仓根
+`CONCURRENCY.md`）：4 个分片 goroutine 各自在本帧内私有重解析同一组
+数据文件（解析器确定性 ⇒ 节点号/池偏移与主程逐一相同），逐条独立
+校验、阶段 4 对分片外 species 只登记不校验（登记序与后登记者胜语义
+不变），主程 join 后按条目序拼片段、合并计数——`validation_report.txt`
+与顺序版逐字节一致（基线 md5 `7a61820e1092f0dd60bcf374cdc1461a`）。
+主程签名与报告形态未动；worker 加载失败响亮 panic（9520/9521），不
+回退顺序执行。注：本地重编工具链下本文件的 build-exe 受编译器缺陷
+DEF-KB-1 阻塞（SAB 验证器 trap 1015，`sla check` 通过；见
+CONCURRENCY.md §3 登记），二进制验收待原生工具链补跑。
