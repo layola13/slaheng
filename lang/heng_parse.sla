@@ -537,17 +537,17 @@ fn parse_term(st: &St, out: &Vec<u8>) -> bool {
 
 fn parse_side(st: &St, out: &Vec<u8>) -> bool {
     let n: u64 = 0;
-    let go: bool = true;
-    while go {
+    let going: bool = true;
+    while going {
         if n > 0 { oput(out, 44); };
         if !parse_term(st, out) { return false; };
         n = n + 1;
         skip_spaces(st);
-        go = false;
+        going = false;
         if st.cp < st.le {
             if byte_at(st.fptr, st.cp) == 43 {
                 st.cp = st.cp + 1;
-                go = true;
+                going = true;
             };
         };
     }
