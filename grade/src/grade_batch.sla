@@ -1,0 +1,261 @@
+// grade_batch.sla —— 衡 · Heng 批量判分（期二首项：引擎内部运行时并发）
+//
+// 设计映射见仓根 CONCURRENCY.md：并发单位 = 一份（题目，答卷）对的完整
+// 判定（草案 §3 逐条独立 + sala 20「系统按实体集并行」）。每份判定由一个
+// goroutine 在本帧内私有完成（读文件→解析→逐断言判定→结果写入独占槽），
+// 主程 join 后按清单原序以 grade.sla 同一批 out_* 助手装配输出——批量
+// stdout 逐字节等于各份单跑 grade 的 stdout 按序拼接。
+//
+// 用法：grade_batch <manifest.json>
+//   清单为 JSON 数组：[{"problem":"<problem.json>","answer":"<answer.json>"}, ...]
+//   上限 128 份、单题断言上限 24（超出响亮报错，见 README）。
+// 退出码：0 = 全部份已判定；1 = 至少一份硬错误（其行仍以 {"error":...} 呈现）；
+//        2 = 用法/清单参数错误；3 = 清单读取或解析失败。
+
+@import "sa_std/task.sai"
+@import "sa_std/core/box.sa"
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+@import "sa_std/vec.sa"
+@import "grade_lib.sla"
+
+struct BSlot {
+    code: i64,
+    pid_len: u64,
+    pid: [u8; 512],
+    err_len: u64,
+    err: [u8; 512],
+    nassert: u64,
+    allp: i64,
+    pass: [i64; 24],
+    dlen: [u64; 24],
+    det: [u8; 73728],
+}
+
+struct BJob {
+    p1p: ptr,
+    p1n: u64,
+    p2p: ptr,
+    p2n: u64,
+    slot: *BSlot,
+}
+
+fn bslot_new() -> *BSlot {
+    return Box::into_raw(Box::new(BSlot {
+        code: 0, pid_len: 0, pid: [0u8; 512], err_len: 0, err: [0u8; 512],
+        nassert: 0, allp: 1, pass: [0i64; 24], dlen: [0u64; 24], det: [0u8; 73728],
+    }));
+}
+
+// 与 grade_lib.out_jstr 逐字节同义的 JSON 字符串打印，字节经 (*slot)
+// 索引直读（跨 goroutine 共享面只走字段直读，不取字段地址——见
+// CONCURRENCY.md 编译器实证 L2）。
+fn slot_jstr(slot: *BSlot, is_pid: bool) {
+    let n: u64 = 0;
+    if is_pid { n = (*slot).pid_len; } else { n = (*slot).err_len; };
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+    let i: u64 = 0;
+    while i < n {
+        let b: u8 = 0;
+        if is_pid { b = (*slot).pid[i]; } else { b = (*slot).err[i]; };
+        if b == 34 {
+            out_lit(STR_PTR("\\\""), STR_LEN("\\\""));
+        } else {
+            if b == 92 {
+                out_lit(STR_PTR("\\\\"), STR_LEN("\\\\"));
+            } else {
+                if b < 32 {
+                    out_lit(STR_PTR("\\u00"), STR_LEN("\\u00"));
+                    let hi: u8 = b / 16;
+                    let lo: u8 = b % 16;
+                    let one = [0u8; 1];
+                    if hi < 10 { one[0] = 48 + hi; } else { one[0] = 87 + hi; };
+                    sa_print_bytes(&one, 1);
+                    if lo < 10 { one[0] = 48 + lo; } else { one[0] = 87 + lo; };
+                    sa_print_bytes(&one, 1);
+                } else {
+                    let one = [0u8; 1];
+                    one[0] = b;
+                    sa_print_bytes(&one, 1);
+                };
+            };
+        };
+        i = i + 1;
+    }
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+}
+
+fn bslot_err(slot: *BSlot, code: i64, mp: ptr, mn: u64) {
+    (*slot).code = code;
+    let i: u64 = 0;
+    while i < mn {
+        (*slot).err[i] = PTR_READ_U8(PTR_BYTE_ADD(mp, i));
+        i = i + 1;
+    }
+    (*slot).err_len = mn;
+}
+
+// 单份判定：与 grade.sla main 的结构校验与断言循环逐项同义，只是判定
+// 结果（pass/detail/pid）写入独占槽、硬错误记 (code, 消息） 而非打印。
+fn bworker(job: *BJob) {
+    let p1p: ptr = (*job).p1p;
+    let p1n: u64 = (*job).p1n;
+    let p2p: ptr = (*job).p2p;
+    let p2n: u64 = (*job).p2n;
+    let slot: *BSlot = (*job).slot;
+    let prob = read_json_file(p1p, p1n);
+    if !prob.ok { bslot_err(slot, 3, STR_PTR("题目文件读取或 JSON 解析失败"), STR_LEN("题目文件读取或 JSON 解析失败")); return; };
+    let ans = read_json_file(p2p, p2n);
+    if !ans.ok { bslot_err(slot, 3, STR_PTR("答案文件读取或 JSON 解析失败"), STR_LEN("答案文件读取或 JSON 解析失败")); return; };
+    if sa_json_kind(prob.doc) != 7 { bslot_err(slot, 4, STR_PTR("题目根节点不是对象"), STR_LEN("题目根节点不是对象")); return; };
+    if sa_json_kind(ans.doc) != 7 { bslot_err(slot, 4, STR_PTR("答案根节点不是对象"), STR_LEN("答案根节点不是对象")); return; };
+    let pid = jget_str(prob.doc, STR_PTR("problem_id"), STR_LEN("problem_id"));
+    if !pid.ok { bslot_err(slot, 4, STR_PTR("题目缺少 problem_id"), STR_LEN("题目缺少 problem_id")); return; };
+    let pid_match: bool = true;
+    if jhas(ans.doc, STR_PTR("problem_id"), STR_LEN("problem_id")) {
+        let apid = jget_str(ans.doc, STR_PTR("problem_id"), STR_LEN("problem_id"));
+        if !apid.ok { bslot_err(slot, 4, STR_PTR("answer.problem_id 不是字符串"), STR_LEN("answer.problem_id 不是字符串")); return; };
+        pid_match = bytes_eq(apid.p, apid.n, pid.p, pid.n);
+    };
+    if !pid_match { bslot_err(slot, 4, STR_PTR("answer.problem_id 与题目不一致"), STR_LEN("answer.problem_id 与题目不一致")); return; };
+    let anode: u64 = jget(prob.doc, STR_PTR("assertions"), STR_LEN("assertions"));
+    if anode == 0 { bslot_err(slot, 4, STR_PTR("题目缺少 assertions"), STR_LEN("题目缺少 assertions")); return; };
+    if sa_json_kind(anode) != 6 { bslot_err(slot, 4, STR_PTR("assertions 不是数组"), STR_LEN("assertions 不是数组")); return; };
+    if jhas(prob.doc, STR_PTR("rubric"), STR_LEN("rubric")) {
+        let rnode: u64 = jget(prob.doc, STR_PTR("rubric"), STR_LEN("rubric"));
+        if sa_json_kind(rnode) != 6 { bslot_err(slot, 4, STR_PTR("rubric 必须为数组"), STR_LEN("rubric 必须为数组")); return; };
+    };
+    let inode: u64 = jget(ans.doc, STR_PTR("items"), STR_LEN("items"));
+    if inode != 0 {
+        if sa_json_kind(inode) != 6 { bslot_err(slot, 4, STR_PTR("answer.items 不是数组"), STR_LEN("answer.items 不是数组")); return; };
+    };
+    let ac: u64 = jcount(anode);
+    if ac > 24 { bslot_err(slot, 4, STR_PTR("批量模式单题断言数超过 24"), STR_LEN("批量模式单题断言数超过 24")); return; };
+    let ic: u64 = 0;
+    if inode != 0 { ic = jcount(inode); };
+    // pid 拷入槽（worker 的 doc 帧退出即失效，必须在本帧内拷出）
+    if pid.n > 512 { bslot_err(slot, 4, STR_PTR("problem_id 超过 512 字节"), STR_LEN("problem_id 超过 512 字节")); return; };
+    let pk: u64 = 0;
+    while pk < pid.n {
+        (*slot).pid[pk] = PTR_READ_U8(PTR_BYTE_ADD(pid.p, pk));
+        pk = pk + 1;
+    }
+    (*slot).pid_len = pid.n;
+    let all_pass: bool = true;
+    let i: u64 = 0;
+    while i < ac {
+        let asn: u64 = jidx(anode, i);
+        let item: u64 = 0;
+        if i < ic { item = jidx(inode, i); };
+        let d = DBuf { b: [0u8; 3072], n: 0 };
+        let rp: bool = judge_one(asn, item, &d);
+        if !rp { all_pass = false; };
+        if rp { (*slot).pass[i] = 1; } else { (*slot).pass[i] = 0; };
+        let base: u64 = i * 3072;
+        let dj: u64 = 0;
+        while dj < d.n {
+            (*slot).det[base + dj] = d.b[dj];
+            dj = dj + 1;
+        }
+        (*slot).dlen[i] = d.n;
+        i = i + 1;
+    }
+    (*slot).nassert = ac;
+    if all_pass { (*slot).allp = 1; } else { (*slot).allp = 0; };
+    (*slot).code = 0;
+}
+
+fn bmain() -> i32 {
+    let abuf: u64 = sa_env_args_json();
+    let ap: ptr = sa_env_buffer_data(abuf);
+    let an: u64 = sa_env_buffer_len(abuf);
+    let args: u64 = sa_json_parse(ap, an);
+    if args == 0 { return fatal(2, STR_PTR("无法读取命令行参数"), STR_LEN("无法读取命令行参数")); };
+    if jcount(args) < 2 { return fatal(2, STR_PTR("用法：grade_batch <manifest.json>"), STR_LEN("用法：grade_batch <manifest.json>")); };
+    let mp = jnode_str(jidx(args, 1));
+    if !mp.ok { return fatal(2, STR_PTR("用法：grade_batch <manifest.json>"), STR_LEN("用法：grade_batch <manifest.json>")); };
+    let man = read_json_file(mp.p, mp.n);
+    if !man.ok { return fatal(3, STR_PTR("批量清单读取或 JSON 解析失败"), STR_LEN("批量清单读取或 JSON 解析失败")); };
+    if sa_json_kind(man.doc) != 6 { return fatal(3, STR_PTR("批量清单根节点不是数组"), STR_LEN("批量清单根节点不是数组")); };
+    let nj: u64 = jcount(man.doc);
+    if nj > 128 { return fatal(4, STR_PTR("批量清单条目超过 128"), STR_LEN("批量清单条目超过 128")); };
+    let slots: Vec<*BSlot> = Vec::new();
+    let handles: [u64; 128] = [0; 128];
+    let spawned: [bool; 128] = [false; 128];
+    let j: u64 = 0;
+    while j < nj {
+        let slot = bslot_new();
+        slots.push(slot);
+        let node: u64 = jidx(man.doc, j);
+        let pp = jget_str(node, STR_PTR("problem"), STR_LEN("problem"));
+        let pa = jget_str(node, STR_PTR("answer"), STR_LEN("answer"));
+        if !pp.ok || !pa.ok {
+            bslot_err(slot, 4, STR_PTR("清单条目缺少 problem/answer"), STR_LEN("清单条目缺少 problem/answer"));
+        } else {
+            let job = Box::into_raw(Box::new(BJob { p1p: pp.p, p1n: pp.n, p2p: pa.p, p2n: pa.n, slot: slot }));
+            let hh = go bworker(job);
+            handles[j] = hh;
+            spawned[j] = true;
+        };
+        j = j + 1;
+    }
+    let jj: u64 = 0;
+    while jj < nj {
+        if spawned[jj] {
+            let st = sa_task_join(handles[jj]);
+            if st != 0 { panic(9521); };
+        };
+        jj = jj + 1;
+    }
+    let any_err: bool = false;
+    let k: u64 = 0;
+    while k < nj {
+        let slot: *BSlot = slots[k];
+        let code: i64 = (*slot).code;
+        if code != 0 {
+            any_err = true;
+            out_lit(STR_PTR("{\"error\":"), STR_LEN("{\"error\":"));
+            slot_jstr(slot, false);
+            out_lit(STR_PTR("}\n"), STR_LEN("}\n"));
+        } else {
+            out_lit(STR_PTR("{\"problem_id\":"), STR_LEN("{\"problem_id\":"));
+            slot_jstr(slot, true);
+            out_lit(STR_PTR(",\"results\":["), STR_LEN(",\"results\":["));
+            let na: u64 = (*slot).nassert;
+            let i: u64 = 0;
+            while i < na {
+                if i > 0 { out_lit(STR_PTR(","), STR_LEN(",")); };
+                out_lit(STR_PTR("{\"assertion_index\":"), STR_LEN("{\"assertion_index\":"));
+                out_u64(i);
+                out_lit(STR_PTR(",\"pass\":"), STR_LEN(",\"pass\":"));
+                if (*slot).pass[i] == 1 { out_lit(STR_PTR("true"), STR_LEN("true")); } else { out_lit(STR_PTR("false"), STR_LEN("false")); };
+                out_lit(STR_PTR(",\"detail\":"), STR_LEN(",\"detail\":"));
+                let d = DBuf { b: [0u8; 3072], n: 0 };
+                let base: u64 = i * 3072;
+                let dj: u64 = 0;
+                while dj < (*slot).dlen[i] {
+                    d.b[dj] = (*slot).det[base + dj];
+                    dj = dj + 1;
+                }
+                d.n = (*slot).dlen[i];
+                out_dbuf_json(&d);
+                out_lit(STR_PTR(",\"provenance\":[\"derived\"]}"), STR_LEN(",\"provenance\":[\"derived\"]}"));
+                i = i + 1;
+            }
+            out_lit(STR_PTR("],\"all_pass\":"), STR_LEN("],\"all_pass\":"));
+            if (*slot).allp == 1 { out_lit(STR_PTR("true"), STR_LEN("true")); } else { out_lit(STR_PTR("false"), STR_LEN("false")); };
+            out_lit(STR_PTR("}\n"), STR_LEN("}\n"));
+        };
+        k = k + 1;
+    }
+    if any_err { return 1; };
+    return 0;
+}
+
+fn main() -> i32 {
+    return bmain();
+}

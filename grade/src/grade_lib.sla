@@ -1,0 +1,1611 @@
+// grade_lib.sla —— 衡 · Heng 判分核（自 grade.sla 拆分，代码搬运零改动）
+//
+// 本文件含判分运行时全部判定与输出助手（judge_one 三断言判定、JSON 助手、
+// out_* 渲染面、read_json_file、fatal）；CLI 入口在 grade.sla（单份）与
+// grade_batch.sla（批量并发，期二首项，设计见仓根 CONCURRENCY.md）。
+//
+// 原用法： grade <problem.json> <answer.json>
+//   stdout 输出 VerdictReport JSON（格式见 INTERFACE.md）。
+//   进程退出码：0 = 已产出判定报告（all_pass 真假为数据、非进程错误）；
+//              2 = 用法错误；3 = 文件读取/JSON 解析失败；4 = 题目/答案结构错误。
+// 硬错误时 stdout 输出 {"error":"..."} 一行，保持机器可读。
+//
+// 判定路径零浮点：数值一律走自备精确有理数（十进制字符串逐位解析）；
+// JSON 数字只经 sa_json_as_i64 读取，FLOAT kind 的系数响亮拒绝。
+// 三种断言的判定口径见 grade/README.md；balanced 的守恒判定已切换至
+// check/ 线 C1 口径（c1_balance_compute，见 judge_balanced），本文件只做
+// 骨架对齐（物种多重集/箭头）与结构化结果到 detail 的翻译。
+//
+// 编译器纪律（本机 sa_plugin_sla 当前版本实证，见 GAPS.md）：
+//  - 字符串一律以 (ptr, len) 对传递：String 形参借入 ABI 有已确认缺口
+//    （sa_plugin_sla demos/basic/POTENTIAL_ISSUES.md #15）。
+//  - 含数组的大结构体（GComp/DBuf/IdBuf/EqSide 等）只在属主帧以字面量创建，
+//    辅助函数一律经 & 引用原地修改：链式按值传递大结构体时读写会分裂
+//    （同一数组两种读法结果不一致，本线 tg/th 探针实证）。
+//  - 内部指针先绑定具名变量再传 extern（内联传参触发 UseAfterMove）。
+
+@import "sa_std/encoding/json.sai"
+@import "sa_std/env.sai"
+@import "sa_std/fs.sai"
+@import "sa_std/io/print.sai"
+@import "sa_std/string.sa"
+@import "sa_std/ptr.sa"
+@import "../../check/c1.sla"
+
+// ---------- 基础输出（全部走 sa_print_bytes，stdout 纯净） ----------
+
+fn out_lit(p: ptr, n: u64) {
+    sa_print_bytes(p, n);
+}
+
+fn out_i64(v: i64) {
+    let buf = [0u8; 24];
+    let neg: bool = v < 0;
+    let mag: u64 = 0;
+    if neg {
+        mag = (0 - v) as u64;
+    } else {
+        mag = v as u64;
+    };
+    let pos: u64 = 24;
+    if mag == 0 {
+        pos = 23;
+        buf[23] = 48;
+    };
+    while mag > 0 {
+        pos = pos - 1;
+        buf[pos] = (48 + (mag % 10)) as u8;
+        mag = mag / 10;
+    }
+    if neg {
+        pos = pos - 1;
+        buf[pos] = 45;
+    };
+    let sp: ptr = PTR_BYTE_ADD(&buf, pos);
+    sa_print_bytes(sp, 24 - pos);
+}
+
+fn out_u64(v: u64) {
+    out_i64(v as i64);
+}
+
+// JSON 字符串输出：加引号并转义 " \ 与控制字符；其余字节（含 UTF-8）原样。
+fn out_jstr(p: ptr, n: u64) {
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+    let i: u64 = 0;
+    while i < n {
+        let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, i));
+        if b == 34 {
+            out_lit(STR_PTR("\\\""), STR_LEN("\\\""));
+        } else {
+            if b == 92 {
+                out_lit(STR_PTR("\\\\"), STR_LEN("\\\\"));
+            } else {
+                if b < 32 {
+                    out_lit(STR_PTR("\\u00"), STR_LEN("\\u00"));
+                    let hi: u8 = b / 16;
+                    let lo: u8 = b % 16;
+                    let one = [0u8; 1];
+                    if hi < 10 { one[0] = 48 + hi; } else { one[0] = 87 + hi; };
+                    sa_print_bytes(&one, 1);
+                    if lo < 10 { one[0] = 48 + lo; } else { one[0] = 87 + lo; };
+                    sa_print_bytes(&one, 1);
+                } else {
+                    let bp: ptr = PTR_BYTE_ADD(p, i);
+                    sa_print_bytes(bp, 1);
+                };
+            };
+        };
+        i = i + 1;
+    }
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+}
+
+fn out_jlit(p: ptr, n: u64) {
+    out_jstr(p, n);
+}
+
+fn bytes_eq(p1: ptr, n1: u64, p2: ptr, n2: u64) -> bool {
+    if n1 != n2 { return false; };
+    let i: u64 = 0;
+    while i < n1 {
+        if PTR_READ_U8(PTR_BYTE_ADD(p1, i)) != PTR_READ_U8(PTR_BYTE_ADD(p2, i)) {
+            return false;
+        };
+        i = i + 1;
+    }
+    return true;
+}
+
+fn lit_eq(p: ptr, n: u64, lp: ptr, ln: u64) -> bool {
+    return bytes_eq(p, n, lp, ln);
+}
+
+fn starts_with(p: ptr, n: u64, lp: ptr, ln: u64) -> bool {
+    if n < ln { return false; };
+    return bytes_eq(p, ln, lp, ln);
+}
+
+fn byte_is_digit(b: u8) -> bool { return b >= 48 && b <= 57; }
+fn byte_is_upper(b: u8) -> bool { return b >= 65 && b <= 90; }
+fn byte_is_lower(b: u8) -> bool { return b >= 97 && b <= 122; }
+fn byte_is_space(b: u8) -> bool { return b == 32 || b == 9 || b == 10 || b == 13; }
+
+// 严格整数文本解析（可选 +/- 前缀，至多 15 位数字）。
+struct PInt { ok: bool, v: i64 }
+fn parse_i64_text(p: ptr, n: u64) -> PInt {
+    let r = PInt { ok: false, v: 0 };
+    if n == 0 { return r; };
+    if n > 16 { return r; };
+    let i: u64 = 0;
+    let neg: bool = false;
+    let b0: u8 = PTR_READ_U8(p);
+    if b0 == 45 { neg = true; i = 1; } else {
+        if b0 == 43 { i = 1; };
+    };
+    if i >= n { return r; };
+    let v: i64 = 0;
+    let digits: u64 = 0;
+    while i < n {
+        let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, i));
+        if !byte_is_digit(b) { return r; };
+        v = v * 10 + (b - 48) as i64;
+        digits = digits + 1;
+        i = i + 1;
+    }
+    if digits == 0 { return r; };
+    if neg { v = 0 - v; };
+    r.ok = true;
+    r.v = v;
+    return r;
+}
+
+fn gcd_i64(a: i64, b: i64) -> i64 {
+    let x: i64 = a;
+    let y: i64 = b;
+    if x < 0 { x = 0 - x; };
+    if y < 0 { y = 0 - y; };
+    while y != 0 {
+        let t: i64 = x % y;
+        x = y;
+        y = t;
+    }
+    if x == 0 { return 1; };
+    return x;
+}
+
+fn abs_i64(v: i64) -> i64 {
+    if v < 0 { return 0 - v; };
+    return v;
+}
+
+// ---------- 精确有理数（判定专用；零浮点） ----------
+// 不变量：d > 0，gcd(|n|, d) = 1。量级护栏：约分后 |n| 与 d 均须 <= 1e8，
+// 使交叉乘积 <= 1e16、差分子 <= 2e16，稳在 i64 内；超限响亮报错（课程量级远在此内）。
+
+struct GRat { n: i64, d: i64 }
+
+fn grat_make(n0: i64, d0: i64) -> GRat {
+    let n: i64 = n0;
+    let d: i64 = d0;
+    if d < 0 { n = 0 - n; d = 0 - d; };
+    if n == 0 {
+        return GRat { n: 0, d: 1 };
+    };
+    let g: i64 = gcd_i64(n, d);
+    if g > 1 {
+        n = n / g;
+        d = d / g;
+    };
+    return GRat { n: n, d: d };
+}
+
+struct PRat { ok: bool, r: GRat }
+
+// 解析 rational 字符串："p/q" 或十进制 "12" / "12.340" / "-0.5"。
+// 逐位十进制解析、绝不经浮点；不支持科学计数法（含 e/E 直接失败）。
+fn rat_parse(p: ptr, n: u64) -> PRat {
+    let bad = PRat { ok: false, r: GRat { n: 0, d: 1 } };
+    // 去首尾空白（显式状态循环，避免越界读）
+    let lo: u64 = 0;
+    let scanning: bool = true;
+    while scanning {
+        if lo < n {
+            if byte_is_space(PTR_READ_U8(PTR_BYTE_ADD(p, lo))) { lo = lo + 1; } else { scanning = false; };
+        } else { scanning = false; };
+    }
+    let hi: u64 = n;
+    scanning = true;
+    while scanning {
+        if hi > lo {
+            if byte_is_space(PTR_READ_U8(PTR_BYTE_ADD(p, hi - 1))) { hi = hi - 1; } else { scanning = false; };
+        } else { scanning = false; };
+    }
+    if lo >= hi { return bad; };
+    // 找 '/'
+    let slash: u64 = hi;
+    let i: u64 = lo;
+    while i < hi {
+        if PTR_READ_U8(PTR_BYTE_ADD(p, i)) == 47 { slash = i; i = hi; } else { i = i + 1; };
+    }
+    if slash < hi {
+        let a = parse_i64_text(PTR_BYTE_ADD(p, lo), slash - lo);
+        if !a.ok { return bad; };
+        let b = parse_i64_text(PTR_BYTE_ADD(p, slash + 1), hi - slash - 1);
+        if !b.ok { return bad; };
+        if b.v == 0 { return bad; };
+        let r = grat_make(a.v, b.v);
+        if abs_i64(r.n) > 100000000 { return bad; };
+        if r.d > 100000000 { return bad; };
+        return PRat { ok: true, r: r };
+    };
+    // 十进制（含整数）统一走 rat_parse_decimal
+    return rat_parse_decimal(p, lo, hi);
+}
+
+fn rat_parse_decimal(p: ptr, lo: u64, hi: u64) -> PRat {
+    let bad = PRat { ok: false, r: GRat { n: 0, d: 1 } };
+    let j: u64 = lo;
+    let neg: bool = false;
+    let b0: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, j));
+    if b0 == 45 { neg = true; j = j + 1; } else {
+        if b0 == 43 { j = j + 1; };
+    };
+    let num: i64 = 0;
+    let den: i64 = 1;
+    let digits: u64 = 0;
+    let seen_dot: bool = false;
+    let valid: bool = true;
+    while j < hi {
+        let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, j));
+        if b == 46 {
+            if seen_dot { valid = false; } else { seen_dot = true; };
+        } else {
+            if byte_is_digit(b) {
+                num = num * 10 + (b - 48) as i64;
+                digits = digits + 1;
+                if seen_dot { den = den * 10; };
+                if digits > 15 { valid = false; };
+            } else { valid = false; };
+        };
+        j = j + 1;
+    }
+    if !valid { return bad; };
+    if digits == 0 { return bad; };
+    if neg { num = 0 - num; };
+    let r = grat_make(num, den);
+    if abs_i64(r.n) > 100000000 { return bad; };
+    if r.d > 100000000 { return bad; };
+    return PRat { ok: true, r: r };
+}
+
+// 比较 an/ad 与 bn/bd（均非负、分母 > 0）：连分数法，只用除/模、零乘积溢出风险。
+// 返回 -1 / 0 / 1。
+fn cmp_frac_nonneg(an0: i64, ad0: i64, bn0: i64, bd0: i64) -> i64 {
+    let an: i64 = an0;
+    let ad: i64 = ad0;
+    let bn: i64 = bn0;
+    let bd: i64 = bd0;
+    let flip: bool = false;
+    let done: bool = false;
+    let result: i64 = 0;
+    while !done {
+        let qa: i64 = an / ad;
+        let qb: i64 = bn / bd;
+        if qa != qb {
+            result = 1;
+            if qa < qb { result = -1; };
+            if flip {
+                result = 0 - result;
+            };
+            done = true;
+        } else {
+            let ra: i64 = an % ad;
+            let rb: i64 = bn % bd;
+            if ra == 0 {
+                if rb == 0 {
+                    result = 0;
+                } else {
+                    result = -1;
+                    if flip { result = 1; };
+                };
+                done = true;
+            } else {
+                if rb == 0 {
+                    result = 1;
+                    if flip { result = -1; };
+                    done = true;
+                } else {
+                    let tan: i64 = ad;
+                    let tad: i64 = ra;
+                    let tbn: i64 = bd;
+                    let tbd: i64 = rb;
+                    an = tan; ad = tad; bn = tbn; bd = tbd;
+                    flip = !flip;
+                };
+            };
+        };
+    }
+    return result;
+}
+
+// |a - b| <= tol ? （tol >= 0）。差的分子/分母在护栏内：|an*bd - bn*ad| <= 2e16。
+fn rat_absdiff_le(a: GRat, b: GRat, tol: GRat) -> bool {
+    let lhs_num: i64 = a.n * b.d - b.n * a.d;
+    let lhs_den: i64 = a.d * b.d;
+    if lhs_num < 0 { lhs_num = 0 - lhs_num; };
+    let c: i64 = cmp_frac_nonneg(lhs_num, lhs_den, tol.n, tol.d);
+    return c <= 0;
+}
+
+// |a - b| 的 GRat（供 detail 显示）。
+fn rat_absdiff(a: GRat, b: GRat) -> GRat {
+    let num: i64 = a.n * b.d - b.n * a.d;
+    if num < 0 { num = 0 - num; };
+    return grat_make(num, a.d * b.d);
+}
+
+// ---------- JSON 访问助手（kind 码：0 null 1 bool 2 int 3 float 4 numstr 5 string 6 array 7 object） ----------
+
+fn jhas(obj: u64, kp: ptr, kn: u64) -> bool {
+    let tmp: u64 = 0;
+    return sa_json_object_get(obj, kp, kn, &tmp) == 0;
+}
+
+fn jget(obj: u64, kp: ptr, kn: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_object_get(obj, kp, kn, &tmp) != 0 {
+        return 0;
+    };
+    return tmp;
+}
+
+fn jcount(node: u64) -> u64 {
+    let c: u64 = 0;
+    if sa_json_value_count(node, &c) != 0 {
+        return 0;
+    };
+    return c;
+}
+
+fn jidx(arr: u64, i: u64) -> u64 {
+    let tmp: u64 = 0;
+    if sa_json_array_get(arr, i, &tmp) != 0 {
+        return 0;
+    };
+    return tmp;
+}
+
+struct JStr { ok: bool, p: ptr, n: u64 }
+
+fn jnode_str(node: u64) -> JStr {
+    let r = JStr { ok: false, p: PTR_NULL(), n: 0 };
+    if node == 0 { return r; };
+    if sa_json_kind(node) != 5 { return r; };
+    r.ok = true;
+    r.p = sa_json_string_ptr(node);
+    r.n = sa_json_string_len(node);
+    return r;
+}
+
+fn jget_str(obj: u64, kp: ptr, kn: u64) -> JStr {
+    return jnode_str(jget(obj, kp, kn));
+}
+
+struct JInt { ok: bool, v: i64 }
+
+// 整数读取：INTEGER kind 走 as_i64；NUMBER_STRING kind 走严格文本解析；
+// FLOAT kind 一律拒绝（判定路径零浮点，系数出现小数响亮失败）。
+fn jint(node: u64) -> JInt {
+    let r = JInt { ok: false, v: 0 };
+    if node == 0 { return r; };
+    let k: u32 = sa_json_kind(node);
+    if k == 2 {
+        let v: i64 = 0;
+        if sa_json_as_i64(node, &v) != 0 { return r; };
+        r.ok = true;
+        r.v = v;
+        return r;
+    };
+    if k == 4 {
+        // NUMBER_STRING 的文本经 string 访问器取（kind 4 与 5 的载荷同为文本）
+        let pp: ptr = sa_json_string_ptr(node);
+        let nn: u64 = sa_json_string_len(node);
+        let parsed = parse_i64_text(pp, nn);
+        if !parsed.ok { return r; };
+        r.ok = true;
+        r.v = parsed.v;
+        return r;
+    };
+    return r;
+}
+
+// ---------- 元素表与化学式解析 ----------
+// L0/L1 常用元素（48 个）。索引即 composition 数组下标；未知元素响亮失败。
+// 注：字符串字面量直接 return 不被类型为 String，故表以字面量原地取 PTR/LEN。
+fn elem_table_ptr() -> ptr {
+    return STR_PTR("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Ag Cd Sn Sb Te I Xe Cs Ba Pt Au Hg Pb");
+}
+
+fn elem_table_len() -> u64 {
+    return STR_LEN("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Ag Cd Sn Sb Te I Xe Cs Ba Pt Au Hg Pb");
+}
+
+struct SymAt { ok: bool, p: ptr, n: u64, next: u64 }
+
+// 取表内第 idx 个符号（空格分隔扫描）。
+fn elem_sym_at(idx: u64) -> SymAt {
+    let tp: ptr = elem_table_ptr();
+    let tn: u64 = elem_table_len();
+    let bad = SymAt { ok: false, p: tp, n: 0, next: 0 };
+    let i: u64 = 0;
+    let cur: u64 = 0;
+    while i < tn {
+        // 跳空格
+        let skipping: bool = true;
+        while skipping {
+            if i < tn {
+                if PTR_READ_U8(PTR_BYTE_ADD(tp, i)) == 32 { i = i + 1; } else { skipping = false; };
+            } else { skipping = false; };
+        }
+        if i >= tn { return bad; };
+        let start: u64 = i;
+        let reading: bool = true;
+        while reading {
+            if i < tn {
+                if PTR_READ_U8(PTR_BYTE_ADD(tp, i)) != 32 { i = i + 1; } else { reading = false; };
+            } else { reading = false; };
+        }
+        if cur == idx {
+            return SymAt { ok: true, p: PTR_BYTE_ADD(tp, start), n: i - start, next: i };
+        };
+        cur = cur + 1;
+    }
+    return bad;
+}
+
+fn elem_count_total() -> u64 {
+    let c: u64 = 0;
+    let probing: bool = true;
+    while probing {
+        let s = elem_sym_at(c);
+        if s.ok { c = c + 1; } else { probing = false; };
+    }
+    return c;
+}
+
+// 符号 -> 表索引；未知返回 -1（以 i64 表达）。
+fn elem_index(sp: ptr, sn: u64) -> i64 {
+    let total: u64 = elem_count_total();
+    let i: u64 = 0;
+    while i < total {
+        let s = elem_sym_at(i);
+        if s.ok {
+            if bytes_eq(sp, sn, s.p, s.n) {
+                return i as i64;
+            };
+        };
+        i = i + 1;
+    }
+    return -1;
+}
+
+// composition：下标 = 元素表索引（64 槽，表内 48 个 + 余量）。一律 & 原地操作。
+struct GComp { cnt: [i64; 64] }
+
+fn comp_clear(c: &GComp) {
+    let i: u64 = 0;
+    while i < 64 {
+        c.cnt[i] = 0;
+        i = i + 1;
+    }
+}
+
+fn comp_copy(dst: &GComp, src: &GComp) {
+    let i: u64 = 0;
+    while i < 64 {
+        dst.cnt[i] = src.cnt[i];
+        i = i + 1;
+    }
+}
+
+fn gcomp_add_scaled(dst: &GComp, src: &GComp, scale: i64) {
+    let i: u64 = 0;
+    while i < 64 {
+        dst.cnt[i] = dst.cnt[i] + src.cnt[i] * scale;
+        i = i + 1;
+    }
+}
+
+// 解析错误码：0 ok / 1 语法 / 2 未知元素 / 3 canon id 不可解析 / 4 计数越界 / 5 空
+struct RefParse { ok: bool, err: i64, pos: u64, comp: GComp, charge: i64 }
+
+fn refparse_reset(r: &RefParse) {
+    r.ok = false;
+    r.err = 0;
+    r.pos = 0;
+    r.charge = 0;
+    comp_clear(&r.comp);
+}
+
+struct GPState { pos: u64, err: i64, comp: GComp }
+
+// 递归下降解析一段化学式（到 ')' 或串尾停）：
+// seq := term* ; term := 元素 [计数] | '(' seq ')' [计数]；计数默认 1、须 >= 1。
+fn gparse_seq(p: ptr, n: u64, st: &GPState, mult: i64) {
+    let going: bool = true;
+    while going {
+        if st.err != 0 { going = false; } else {
+            if st.pos >= n { going = false; } else {
+                let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, st.pos));
+                if b == 41 { going = false; } else {
+                    parse_term(p, n, st, mult);
+                };
+            };
+        };
+    }
+}
+
+fn parse_term(p: ptr, n: u64, st: &GPState, mult: i64) {
+    let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, st.pos));
+    if b == 40 {
+        // '(' seq ')' [count]
+        let sub = GPState { pos: st.pos + 1, err: 0, comp: GComp { cnt: [0i64; 64] } };
+        gparse_seq(p, n, &sub, 1);
+        if sub.err != 0 {
+            st.err = sub.err;
+            st.pos = sub.pos;
+            return;
+        };
+        if sub.pos >= n {
+            st.err = 1;
+            st.pos = sub.pos;
+            return;
+        };
+        if PTR_READ_U8(PTR_BYTE_ADD(p, sub.pos)) != 41 {
+            st.err = 1;
+            st.pos = sub.pos;
+            return;
+        };
+        let after = read_count(p, n, sub.pos + 1);
+        if after.err != 0 {
+            st.err = after.err;
+            st.pos = after.pos;
+            return;
+        };
+        gcomp_add_scaled(&st.comp, &sub.comp, after.v * mult);
+        st.pos = after.pos;
+        return;
+    };
+    if byte_is_upper(b) {
+        let start: u64 = st.pos;
+        let epos: u64 = st.pos + 1;
+        if epos < n {
+            if byte_is_lower(PTR_READ_U8(PTR_BYTE_ADD(p, epos))) {
+                epos = epos + 1;
+            };
+        };
+        let idx: i64 = elem_index(PTR_BYTE_ADD(p, start), epos - start);
+        if idx < 0 {
+            st.err = 2;
+            st.pos = start;
+            return;
+        };
+        let cnt = read_count(p, n, epos);
+        if cnt.err != 0 {
+            st.err = cnt.err;
+            st.pos = cnt.pos;
+            return;
+        };
+        st.comp.cnt[idx as u64] = st.comp.cnt[idx as u64] + cnt.v * mult;
+        if st.comp.cnt[idx as u64] > 1000000 {
+            st.err = 4;
+            st.pos = cnt.pos;
+            return;
+        };
+        st.pos = cnt.pos;
+        return;
+    };
+    st.err = 1;
+}
+
+struct RCnt { err: i64, v: i64, pos: u64 }
+
+// 读可选计数：无数字 -> 1；有数字须 >= 1 且 <= 9999。
+fn read_count(p: ptr, n: u64, pos0: u64) -> RCnt {
+    let pos: u64 = pos0;
+    let v: i64 = 0;
+    let any: bool = false;
+    let going: bool = true;
+    while going {
+        if pos < n {
+            let b: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, pos));
+            if byte_is_digit(b) {
+                v = v * 10 + (b - 48) as i64;
+                any = true;
+                pos = pos + 1;
+                if v > 9999 {
+                    return RCnt { err: 4, v: 0, pos: pos };
+                };
+            } else { going = false; };
+        } else { going = false; };
+    }
+    if !any {
+        return RCnt { err: 0, v: 1, pos: pos };
+    };
+    if v < 1 {
+        return RCnt { err: 4, v: 0, pos: pos };
+    };
+    return RCnt { err: 0, v: v, pos: pos };
+}
+
+// 从尾部剥离电荷后缀。约定（与课本离子写法一致）：
+//   带 ^ 形：...^<数字><+/->，^ 前数字全为电荷量（如 SO4^2-、Fe^3+）；
+//   无 ^ 形：符号前最多一位数字为电荷量（如 SO42- 读作 SO4 带 2-、Ca2+）；
+//   无数字：电荷量 1（如 Na+、OH-）。无后缀时电荷 0。
+struct ChargeCut { body_len: u64, charge: i64 }
+fn strip_charge(p: ptr, n: u64) -> ChargeCut {
+    let r = ChargeCut { body_len: n, charge: 0 };
+    if n == 0 { return r; };
+    let last: u8 = PTR_READ_U8(PTR_BYTE_ADD(p, n - 1));
+    if last != 43 {
+        if last != 45 {
+            return r;
+        };
+    };
+    let sign: i64 = 1;
+    if last == 45 { sign = -1; };
+    let i: u64 = n - 1; // 符号位下标
+    // 符号前连续数字段 [j, i)
+    let j: u64 = i;
+    let scanning: bool = true;
+    while scanning {
+        if j > 0 {
+            if byte_is_digit(PTR_READ_U8(PTR_BYTE_ADD(p, j - 1))) { j = j - 1; } else { scanning = false; };
+        } else { scanning = false; };
+    }
+    if j > 0 {
+        if PTR_READ_U8(PTR_BYTE_ADD(p, j - 1)) == 94 {
+            // ^ 形：数字段全为电荷量
+            let mag: i64 = 0;
+            let k: u64 = j;
+            while k < i {
+                mag = mag * 10 + (PTR_READ_U8(PTR_BYTE_ADD(p, k)) - 48) as i64;
+                k = k + 1;
+            }
+            if mag == 0 { mag = 1; };
+            r.body_len = j - 1;
+            r.charge = sign * mag;
+            return r;
+        };
+    };
+    if j < i {
+        // 无 ^：只取最后一位数字为电荷量，其余数字属化学式本体
+        let mag: i64 = (PTR_READ_U8(PTR_BYTE_ADD(p, i - 1)) - 48) as i64;
+        r.body_len = i - 1;
+        r.charge = sign * mag;
+        return r;
+    };
+    r.body_len = i;
+    r.charge = sign;
+    return r;
+}
+
+// 解析化学式主体（不含电荷后缀）为 composition，结果写入 out。
+fn parse_formula_body(p: ptr, n: u64, out: &RefParse) {
+    refparse_reset(out);
+    if n == 0 {
+        out.err = 5;
+        return;
+    };
+    let st = GPState { pos: 0, err: 0, comp: GComp { cnt: [0i64; 64] } };
+    gparse_seq(p, n, &st, 1);
+    if st.err != 0 {
+        out.err = st.err;
+        out.pos = st.pos;
+        return;
+    };
+    if st.pos != n {
+        // 停在未配对的 ')' 等
+        out.err = 1;
+        out.pos = st.pos;
+        return;
+    };
+    comp_copy(&out.comp, &st.comp);
+    out.ok = true;
+}
+
+// 解析物种引用：原始化学式（可带电荷后缀）或 formula1: 占位 id，结果写入 out。
+fn parse_species_ref(p: ptr, n: u64, out: &RefParse) {
+    if starts_with(p, n, STR_PTR("canon"), STR_LEN("canon")) {
+        refparse_reset(out);
+        out.err = 3;
+        return;
+    };
+    if starts_with(p, n, STR_PTR("formula1:"), STR_LEN("formula1:")) {
+        // 形式 formula1:<CANON>@<charge>
+        let inner_p: ptr = PTR_BYTE_ADD(p, 9);
+        let inner_n: u64 = n - 9;
+        let at: u64 = inner_n;
+        let i: u64 = 0;
+        let found: bool = false;
+        while i < inner_n {
+            if PTR_READ_U8(PTR_BYTE_ADD(inner_p, i)) == 64 { at = i; found = true; };
+            i = i + 1;
+        }
+        if !found {
+            refparse_reset(out);
+            out.err = 1;
+            return;
+        };
+        let chg = parse_i64_text(PTR_BYTE_ADD(inner_p, at + 1), inner_n - at - 1);
+        if !chg.ok {
+            refparse_reset(out);
+            out.err = 1;
+            return;
+        };
+        parse_formula_body(inner_p, at, out);
+        if !out.ok { return; };
+        out.charge = chg.v;
+        return;
+    };
+    let cut = strip_charge(p, n);
+    parse_formula_body(p, cut.body_len, out);
+    if !out.ok { return; };
+    out.charge = cut.charge;
+}
+
+// Hill 规范序的 rank：C = 0，H = 1，其余 = 2（其内按符号字节序）。
+fn hill_rank(sp: ptr, sn: u64) -> i64 {
+    if sn == 1 {
+        let b: u8 = PTR_READ_U8(sp);
+        if b == 67 { return 0; };
+        if b == 72 { return 1; };
+    };
+    return 2;
+}
+
+fn sym_cmp(ap: ptr, an: u64, bp: ptr, bn: u64) -> i64 {
+    let ra: i64 = hill_rank(ap, an);
+    let rb: i64 = hill_rank(bp, bn);
+    if ra != rb {
+        if ra < rb { return -1; };
+        return 1;
+    };
+    let m: u64 = an;
+    if bn < m { m = bn; };
+    let i: u64 = 0;
+    while i < m {
+        let x: u8 = PTR_READ_U8(PTR_BYTE_ADD(ap, i));
+        let y: u8 = PTR_READ_U8(PTR_BYTE_ADD(bp, i));
+        if x != y {
+            if x < y { return -1; };
+            return 1;
+        };
+        i = i + 1;
+    }
+    if an == bn { return 0; };
+    if an < bn { return -1; };
+    return 1;
+}
+
+struct IdBuf { b: [u8; 168], n: u64 }
+
+fn idbuf_putc(buf: &IdBuf, c: u8) {
+    if buf.n < 168 {
+        buf.b[buf.n] = c;
+        buf.n = buf.n + 1;
+    };
+}
+
+fn idbuf_put(buf: &IdBuf, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        idbuf_putc(buf, PTR_READ_U8(PTR_BYTE_ADD(p, i)));
+        i = i + 1;
+    }
+}
+
+fn idbuf_put_i64(buf: &IdBuf, v: i64) {
+    let tmp = [0u8; 24];
+    let neg: bool = v < 0;
+    let mag: u64 = 0;
+    if neg { mag = (0 - v) as u64; } else { mag = v as u64; };
+    let pos: u64 = 24;
+    if mag == 0 {
+        pos = 23;
+        tmp[23] = 48;
+    };
+    while mag > 0 {
+        pos = pos - 1;
+        tmp[pos] = (48 + (mag % 10)) as u8;
+        mag = mag / 10;
+    }
+    if neg {
+        pos = pos - 1;
+        tmp[pos] = 45;
+    };
+    let i: u64 = pos;
+    while i < 24 {
+        idbuf_putc(buf, tmp[i]);
+        i = i + 1;
+    }
+}
+
+// composition -> Hill 规范化学式（写入 buf）。
+fn canon_formula(comp: &GComp, buf: &IdBuf) {
+    // 收集在场元素索引
+    let present = [0u64; 64];
+    let pn: u64 = 0;
+    let total: u64 = elem_count_total();
+    let i: u64 = 0;
+    while i < total {
+        if comp.cnt[i] != 0 {
+            present[pn] = i;
+            pn = pn + 1;
+        };
+        i = i + 1;
+    }
+    // 冒泡排序（Hill rank + 符号序）
+    let a: u64 = 0;
+    while a < pn {
+        let b: u64 = 0;
+        while b + 1 < pn - a {
+            let s1 = elem_sym_at(present[b]);
+            let s2 = elem_sym_at(present[b + 1]);
+            if sym_cmp(s1.p, s1.n, s2.p, s2.n) > 0 {
+                let t: u64 = present[b];
+                present[b] = present[b + 1];
+                present[b + 1] = t;
+            };
+            b = b + 1;
+        }
+        a = a + 1;
+    }
+    let k: u64 = 0;
+    while k < pn {
+        let s = elem_sym_at(present[k]);
+        idbuf_put(buf, s.p, s.n);
+        let c: i64 = comp.cnt[present[k]];
+        if c != 1 {
+            idbuf_put_i64(buf, c);
+        };
+        k = k + 1;
+    }
+}
+
+// formula1 占位 id：formula1:<Hill 规范式>@<charge>，写入 out。
+fn species_id_of(comp: &GComp, charge: i64, out: &IdBuf) {
+    out.n = 0;
+    idbuf_put(out, STR_PTR("formula1:"), 9);
+    canon_formula(comp, out);
+    idbuf_putc(out, 64);
+    idbuf_put_i64(out, charge);
+}
+
+fn idbuf_eq(a: &IdBuf, b: &IdBuf) -> bool {
+    if a.n != b.n { return false; };
+    let i: u64 = 0;
+    while i < a.n {
+        if a.b[i] != b.b[i] { return false; };
+        i = i + 1;
+    }
+    return true;
+}
+
+// ---------- detail 缓冲（判定 detail 先入缓冲，再按契约字段序输出；一律 & 原地追加） ----------
+
+struct DBuf { b: [u8; 3072], n: u64 }
+
+fn dputc(d: &DBuf, c: u8) {
+    if d.n < 3072 {
+        d.b[d.n] = c;
+        d.n = d.n + 1;
+    };
+}
+
+fn dput(d: &DBuf, p: ptr, n: u64) {
+    let i: u64 = 0;
+    while i < n {
+        dputc(d, PTR_READ_U8(PTR_BYTE_ADD(p, i)));
+        i = i + 1;
+    }
+}
+
+fn dput_lit(d: &DBuf, p: ptr, n: u64) {
+    dput(d, p, n);
+}
+
+fn dput_i64(d: &DBuf, v: i64) {
+    let tmp = [0u8; 24];
+    let neg: bool = v < 0;
+    let mag: u64 = 0;
+    if neg { mag = (0 - v) as u64; } else { mag = v as u64; };
+    let pos: u64 = 24;
+    if mag == 0 {
+        pos = 23;
+        tmp[23] = 48;
+    };
+    while mag > 0 {
+        pos = pos - 1;
+        tmp[pos] = (48 + (mag % 10)) as u8;
+        mag = mag / 10;
+    }
+    if neg {
+        pos = pos - 1;
+        tmp[pos] = 45;
+    };
+    let i: u64 = pos;
+    while i < 24 {
+        dputc(d, tmp[i]);
+        i = i + 1;
+    }
+}
+
+fn dput_rat(d: &DBuf, r: GRat) {
+    dput_i64(d, r.n);
+    if r.d != 1 {
+        dputc(d, 47);
+        dput_i64(d, r.d);
+    };
+}
+
+fn dput_idbuf(d: &DBuf, buf: &IdBuf) {
+    let i: u64 = 0;
+    while i < buf.n {
+        dputc(d, buf.b[i]);
+        i = i + 1;
+    }
+}
+
+// 解析失败原因（detail 用）
+fn dput_ref_err(d: &DBuf, err: i64) {
+    if err == 1 { dput_lit(d, STR_PTR("化学式语法错误"), STR_LEN("化学式语法错误")); return; };
+    if err == 2 { dput_lit(d, STR_PTR("未知元素符号"), STR_LEN("未知元素符号")); return; };
+    if err == 3 { dput_lit(d, STR_PTR("canon 物种 id 在 grade v0.1 不可解析"), STR_LEN("canon 物种 id 在 grade v0.1 不可解析")); return; };
+    if err == 4 { dput_lit(d, STR_PTR("计数越界"), STR_LEN("计数越界")); return; };
+    if err == 5 { dput_lit(d, STR_PTR("化学式为空"), STR_LEN("化学式为空")); return; };
+    dput_lit(d, STR_PTR("解析失败"), STR_LEN("解析失败"));
+}
+
+fn dput_eqside_err(d: &DBuf, err: i64) {
+    if err == 1 { dput_lit(d, STR_PTR("缺少该侧或不是数组"), STR_LEN("缺少该侧或不是数组")); return; };
+    if err == 2 { dput_lit(d, STR_PTR("条目不是 [物种, 系数] 二元组"), STR_LEN("条目不是 [物种, 系数] 二元组")); return; };
+    if err == 3 { dput_lit(d, STR_PTR("系数不是整数"), STR_LEN("系数不是整数")); return; };
+    if err == 4 { dput_lit(d, STR_PTR("单侧物种条目超过 16"), STR_LEN("单侧物种条目超过 16")); return; };
+    if err == 5 { dput_lit(d, STR_PTR("物种引用不是字符串"), STR_LEN("物种引用不是字符串")); return; };
+    if err == 6 { dput_lit(d, STR_PTR("系数超出范围 [0, 1000000]"), STR_LEN("系数超出范围 [0, 1000000]")); return; };
+    dput_lit(d, STR_PTR("方程结构错误"), STR_LEN("方程结构错误"));
+}
+
+// detail 以 JSON 字符串输出（转义同 out_jstr）。
+fn out_dbuf_json(d: &DBuf) {
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+    let i: u64 = 0;
+    while i < d.n {
+        let b: u8 = d.b[i];
+        if b == 34 {
+            out_lit(STR_PTR("\\\""), STR_LEN("\\\""));
+        } else {
+            if b == 92 {
+                out_lit(STR_PTR("\\\\"), STR_LEN("\\\\"));
+            } else {
+                if b < 32 {
+                    out_lit(STR_PTR("\\u00"), STR_LEN("\\u00"));
+                    let hi: u8 = b / 16;
+                    let lo: u8 = b % 16;
+                    let one = [0u8; 1];
+                    if hi < 10 { one[0] = 48 + hi; } else { one[0] = 87 + hi; };
+                    sa_print_bytes(&one, 1);
+                    if lo < 10 { one[0] = 48 + lo; } else { one[0] = 87 + lo; };
+                    sa_print_bytes(&one, 1);
+                } else {
+                    let bp: ptr = PTR_BYTE_ADD(&d.b, i);
+                    sa_print_bytes(bp, 1);
+                };
+            };
+        };
+        i = i + 1;
+    }
+    out_lit(STR_PTR("\""), STR_LEN("\""));
+}
+
+// ---------- 方程一侧的解析 ----------
+// err: 0 ok / 1 缺失或非数组 / 2 条目非二元组 / 3 系数非整数 / 4 条目超 16 / 5 物种非字符串 / 6 系数越界
+// 系数 0 的条目按「不参与」跳过（题面与答案同口径，README 备案）。
+struct EqSide { err: i64, n: u64, rp: [ptr; 16], rl: [u64; 16], cf: [i64; 16] }
+
+fn eqside_reset(s: &EqSide) {
+    s.err = 0;
+    s.n = 0;
+}
+
+fn parse_eq_side(eq: u64, kp: ptr, kn: u64, s: &EqSide) {
+    eqside_reset(s);
+    let node: u64 = jget(eq, kp, kn);
+    if node == 0 { s.err = 1; return; };
+    if sa_json_kind(node) != 6 { s.err = 1; return; };
+    let cnt: u64 = jcount(node);
+    if cnt > 16 { s.err = 4; return; };
+    let i: u64 = 0;
+    while i < cnt {
+        let e: u64 = jidx(node, i);
+        if e == 0 { s.err = 2; return; };
+        if sa_json_kind(e) != 6 { s.err = 2; return; };
+        if jcount(e) != 2 { s.err = 2; return; };
+        let rs = jnode_str(jidx(e, 0));
+        if !rs.ok { s.err = 5; return; };
+        let ci = jint(jidx(e, 1));
+        if !ci.ok { s.err = 3; return; };
+        if ci.v < 0 { s.err = 6; return; };
+        if ci.v > 1000000 { s.err = 6; return; };
+        if ci.v != 0 {
+            s.rp[s.n] = rs.p;
+            s.rl[s.n] = rs.n;
+            s.cf[s.n] = ci.v;
+            s.n = s.n + 1;
+        };
+        i = i + 1;
+    }
+}
+
+// 物种多重集比对（学生侧 vs 骨架侧，忽略系数），结果写入 out：
+// code: 0 一致；1 学生多出（bad_at = 学生下标）；2 骨架多出（学生缺失）；
+//       3 某物种解析失败（bad_at/bad_err，bad_side: 0 学生 / 1 骨架）
+struct MSCmp { code: i64, bad_at: u64, bad_err: i64, bad_side: i64 }
+fn multiset_cmp(stud: &EqSide, skel: &EqSide, out: &MSCmp) {
+    out.code = 0;
+    out.bad_at = 0;
+    out.bad_err = 0;
+    out.bad_side = 0;
+    let used = [false; 16];
+    let rp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let kp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let want = IdBuf { b: [0u8; 168], n: 0 };
+    let have = IdBuf { b: [0u8; 168], n: 0 };
+    let i: u64 = 0;
+    while i < stud.n {
+        parse_species_ref(stud.rp[i], stud.rl[i], &rp);
+        if !rp.ok {
+            out.code = 3; out.bad_at = i; out.bad_err = rp.err; out.bad_side = 0;
+            return;
+        };
+        species_id_of(&rp.comp, rp.charge, &want);
+        let found: bool = false;
+        let j: u64 = 0;
+        while j < skel.n {
+            if !used[j] {
+                parse_species_ref(skel.rp[j], skel.rl[j], &kp);
+                if !kp.ok {
+                    out.code = 3; out.bad_at = j; out.bad_err = kp.err; out.bad_side = 1;
+                    return;
+                };
+                species_id_of(&kp.comp, kp.charge, &have);
+                if idbuf_eq(&want, &have) {
+                    used[j] = true;
+                    found = true;
+                    j = skel.n;
+                };
+            };
+            j = j + 1;
+        }
+        if !found {
+            out.code = 1; out.bad_at = i;
+            return;
+        };
+        i = i + 1;
+    }
+    let j2: u64 = 0;
+    while j2 < skel.n {
+        if !used[j2] {
+            out.code = 2; out.bad_at = j2;
+            return;
+        };
+        j2 = j2 + 1;
+    }
+}
+
+// ---------- 三种断言的判定 ----------
+// balanced 的判定口径（集成期已切换至 check 线 C1）：
+//   题面断言 equation 为骨架——两侧物种多重集（按 species_id 级别）与箭头是期望，
+//   骨架系数仅占位、不参与判定；学生方程须物种/箭头与骨架一致（本文件判定），
+//   且自身守恒（元素/电荷）由 check 线 c1_balance_compute 判定（系数均为正整数）。
+
+fn eqside_new() -> EqSide {
+    return EqSide { err: 0, n: 0, rp: [PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL(), PTR_NULL()], rl: [0u64; 16], cf: [0i64; 16] };
+}
+
+// 物种引用切分（为构造 check 的 Equation 备料）：把引用切为化学式本体
+// (body_p, body_n) 与电荷 charge，切分规则与 parse_species_ref 一致
+// （formula1: 占位 id 取 @ 前本体与 @ 后电荷；原始式走 strip_charge）。
+struct RefSplit { body_p: ptr, body_n: u64, charge: i64, ok: bool }
+fn ref_split(p: ptr, n: u64, out: &RefSplit) {
+    out.body_p = p;
+    out.body_n = n;
+    out.charge = 0;
+    out.ok = true;
+    if starts_with(p, n, STR_PTR("formula1:"), STR_LEN("formula1:")) {
+        let inner_p: ptr = PTR_BYTE_ADD(p, 9);
+        let inner_n: u64 = n - 9;
+        let at: u64 = inner_n;
+        let i: u64 = 0;
+        let found: bool = false;
+        while i < inner_n {
+            if PTR_READ_U8(PTR_BYTE_ADD(inner_p, i)) == 64 { at = i; found = true; };
+            i = i + 1;
+        }
+        if !found { out.ok = false; return; };
+        let chg = parse_i64_text(PTR_BYTE_ADD(inner_p, at + 1), inner_n - at - 1);
+        if !chg.ok { out.ok = false; return; };
+        out.body_p = inner_p;
+        out.body_n = at;
+        out.charge = chg.v;
+        return;
+    };
+    let cut = strip_charge(p, n);
+    out.body_p = p;
+    out.body_n = cut.body_len;
+    out.charge = cut.charge;
+}
+
+fn judge_balanced(asn: u64, item: u64, d: &DBuf) -> bool {
+    let skel: u64 = jget(asn, STR_PTR("equation"), STR_LEN("equation"));
+    if skel == 0 {
+        dput_lit(d, STR_PTR("断言缺少 equation"), STR_LEN("断言缺少 equation"));
+        return false;
+    };
+    if sa_json_kind(skel) != 7 {
+        dput_lit(d, STR_PTR("断言 equation 不是对象"), STR_LEN("断言 equation 不是对象"));
+        return false;
+    };
+    let stud: u64 = skel;
+    let has_stud: bool = false;
+    if item != 0 {
+        let se: u64 = jget(item, STR_PTR("equation"), STR_LEN("equation"));
+        if se != 0 {
+            stud = se;
+            has_stud = true;
+        };
+    };
+    if sa_json_kind(stud) != 7 {
+        dput_lit(d, STR_PTR("学生方程不是对象"), STR_LEN("学生方程不是对象"));
+        return false;
+    };
+    // 箭头（题面给出时与答案比对；题面未给则不查）
+    let sa = jget_str(skel, STR_PTR("arrow"), STR_LEN("arrow"));
+    let ta = jget_str(stud, STR_PTR("arrow"), STR_LEN("arrow"));
+    if has_stud {
+        if !ta.ok {
+            dput_lit(d, STR_PTR("学生方程缺少 arrow"), STR_LEN("学生方程缺少 arrow"));
+            return false;
+        };
+    };
+    if sa.ok {
+        if ta.ok {
+            if !bytes_eq(sa.p, sa.n, ta.p, ta.n) {
+                dput_lit(d, STR_PTR("箭头不一致：题面为 "), STR_LEN("箭头不一致：题面为 "));
+                dput(d, sa.p, sa.n);
+                dput_lit(d, STR_PTR("，答案为 "), STR_LEN("，答案为 "));
+                dput(d, ta.p, ta.n);
+                return false;
+            };
+        };
+    };
+    // 四侧解析
+    let s_lhs = eqside_new();
+    let s_rhs = eqside_new();
+    let t_lhs = eqside_new();
+    let t_rhs = eqside_new();
+    parse_eq_side(skel, STR_PTR("lhs"), STR_LEN("lhs"), &s_lhs);
+    parse_eq_side(skel, STR_PTR("rhs"), STR_LEN("rhs"), &s_rhs);
+    parse_eq_side(stud, STR_PTR("lhs"), STR_LEN("lhs"), &t_lhs);
+    parse_eq_side(stud, STR_PTR("rhs"), STR_LEN("rhs"), &t_rhs);
+    if s_lhs.err != 0 {
+        dput_lit(d, STR_PTR("题面骨架 lhs 结构错误："), STR_LEN("题面骨架 lhs 结构错误："));
+        dput_eqside_err(d, s_lhs.err);
+        return false;
+    };
+    if s_rhs.err != 0 {
+        dput_lit(d, STR_PTR("题面骨架 rhs 结构错误："), STR_LEN("题面骨架 rhs 结构错误："));
+        dput_eqside_err(d, s_rhs.err);
+        return false;
+    };
+    if t_lhs.err != 0 {
+        dput_lit(d, STR_PTR("答案 lhs 结构错误："), STR_LEN("答案 lhs 结构错误："));
+        dput_eqside_err(d, t_lhs.err);
+        return false;
+    };
+    if t_rhs.err != 0 {
+        dput_lit(d, STR_PTR("答案 rhs 结构错误："), STR_LEN("答案 rhs 结构错误："));
+        dput_eqside_err(d, t_rhs.err);
+        return false;
+    };
+    // 物种多重集（lhs、rhs 各一次）
+    let mc = MSCmp { code: 0, bad_at: 0, bad_err: 0, bad_side: 0 };
+    multiset_cmp(&t_lhs, &s_lhs, &mc);
+    if mc.code != 0 {
+        bal_ms_detail(d, &mc, &t_lhs, &s_lhs, STR_PTR("左侧"), STR_LEN("左侧"));
+        return false;
+    };
+    multiset_cmp(&t_rhs, &s_rhs, &mc);
+    if mc.code != 0 {
+        bal_ms_detail(d, &mc, &t_rhs, &s_rhs, STR_PTR("右侧"), STR_LEN("右侧"));
+        return false;
+    };
+    // 守恒判定（集成期切换至 check 线 C1 口径）：学生方程构造为 check 的
+    // Equation（物种引用经 ref_split 切分为 本体+电荷），由 c1_balance_compute
+    // 静默判定；本函数只把结构化结果（逐元素总量/电荷总量）译为 detail，
+    // 不再自备守恒算术。C1 规模上限每侧 8 项，超出响亮 fail、不静默截断。
+    if t_lhs.n > 8 || t_rhs.n > 8 {
+        dput_lit(d, STR_PTR("答案方程物种数超出 C1 检验上限（每侧至多 8 项）：左 "), STR_LEN("答案方程物种数超出 C1 检验上限（每侧至多 8 项）：左 "));
+        dput_i64(d, t_lhs.n as i64);
+        dput_lit(d, STR_PTR(" 项，右 "), STR_LEN(" 项，右 "));
+        dput_i64(d, t_rhs.n as i64);
+        dput_lit(d, STR_PTR(" 项"), STR_LEN(" 项"));
+        return false;
+    };
+    let eq = eq_new();
+    let rs = RefSplit { body_p: PTR_NULL(), body_n: 0, charge: 0, ok: false };
+    let bi: u64 = 0;
+    while bi < t_lhs.n {
+        ref_split(t_lhs.rp[bi], t_lhs.rl[bi], &rs);
+        if !rs.ok {
+            dput_lit(d, STR_PTR("答案左侧物种「"), STR_LEN("答案左侧物种「"));
+            dput(d, t_lhs.rp[bi], t_lhs.rl[bi]);
+            dput_lit(d, STR_PTR("」引用切分失败"), STR_LEN("」引用切分失败"));
+            return false;
+        };
+        eq_add_lhs_view(&eq, rs.body_p, rs.body_n, rs.charge, t_lhs.cf[bi], true);
+        bi = bi + 1;
+    }
+    let bj: u64 = 0;
+    while bj < t_rhs.n {
+        ref_split(t_rhs.rp[bj], t_rhs.rl[bj], &rs);
+        if !rs.ok {
+            dput_lit(d, STR_PTR("答案右侧物种「"), STR_LEN("答案右侧物种「"));
+            dput(d, t_rhs.rp[bj], t_rhs.rl[bj]);
+            dput_lit(d, STR_PTR("」引用切分失败"), STR_LEN("」引用切分失败"));
+            return false;
+        };
+        eq_add_rhs_view(&eq, rs.body_p, rs.body_n, rs.charge, t_rhs.cf[bj], true);
+        bj = bj + 1;
+    }
+    let rep = c1_balance_new();
+    c1_balance_compute(&eq, &rep);
+    if rep.code == -1 {
+        // C1 口径解析失败（元素不在 C1 元素表内 / 式形超出 L0 子集等），定位到项
+        if rep.bad_side == 0 {
+            dput_lit(d, STR_PTR("答案左侧物种「"), STR_LEN("答案左侧物种「"));
+            dput(d, t_lhs.rp[rep.bad_idx as u64], t_lhs.rl[rep.bad_idx as u64]);
+        } else {
+            dput_lit(d, STR_PTR("答案右侧物种「"), STR_LEN("答案右侧物种「"));
+            dput(d, t_rhs.rp[rep.bad_idx as u64], t_rhs.rl[rep.bad_idx as u64]);
+        };
+        dput_lit(d, STR_PTR("」无法以 C1 口径解析"), STR_LEN("」无法以 C1 口径解析"));
+        return false;
+    };
+    if rep.code != 0 {
+        let bad_any: bool = false;
+        let ne: i64 = c1_nelem();
+        let e: i64 = 0;
+        while e < ne {
+            if rep.lt[e] != rep.rt[e] {
+                if bad_any { dput_lit(d, STR_PTR("；"), STR_LEN("；")); };
+                let sym = c1_elem_symbol(e);
+                dput_lit(d, STR_PTR("元素 "), STR_LEN("元素 "));
+                dput(d, sym, len(sym));
+                dput_lit(d, STR_PTR(" 未守恒：左侧共 "), STR_LEN(" 未守恒：左侧共 "));
+                dput_i64(d, rep.lt[e]);
+                dput_lit(d, STR_PTR(" 个，右侧共 "), STR_LEN(" 个，右侧共 "));
+                dput_i64(d, rep.rt[e]);
+                dput_lit(d, STR_PTR(" 个"), STR_LEN(" 个"));
+                bad_any = true;
+            };
+            e = e + 1;
+        }
+        if rep.lc != rep.rc {
+            if bad_any { dput_lit(d, STR_PTR("；"), STR_LEN("；")); };
+            dput_lit(d, STR_PTR("电荷未守恒：左侧总电荷 "), STR_LEN("电荷未守恒：左侧总电荷 "));
+            dput_i64(d, rep.lc);
+            dput_lit(d, STR_PTR("，右侧总电荷 "), STR_LEN("，右侧总电荷 "));
+            dput_i64(d, rep.rc);
+            bad_any = true;
+        };
+        return false;
+    };
+    dput_lit(d, STR_PTR("配平成立：两侧物种与题面一致，各元素原子数与总电荷守恒（"), STR_LEN("配平成立：两侧物种与题面一致，各元素原子数与总电荷守恒（"));
+    let kinds: i64 = 0;
+    let k: i64 = 0;
+    let ne2: i64 = c1_nelem();
+    while k < ne2 {
+        if rep.lt[k] != 0 { kinds = kinds + 1; };
+        k = k + 1;
+    }
+    dput_i64(d, kinds);
+    dput_lit(d, STR_PTR(" 种元素）"), STR_LEN(" 种元素）"));
+    return true;
+}
+
+fn bal_ms_detail(d: &DBuf, mc: &MSCmp, stud: &EqSide, skel: &EqSide, sp: ptr, sn: u64) {
+    let rp = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let id = IdBuf { b: [0u8; 168], n: 0 };
+    if mc.code == 3 {
+        if mc.bad_side == 0 {
+            dput_lit(d, STR_PTR("答案"), STR_LEN("答案"));
+            dput(d, sp, sn);
+            dput_lit(d, STR_PTR("物种「"), STR_LEN("物种「"));
+            dput(d, stud.rp[mc.bad_at], stud.rl[mc.bad_at]);
+            dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
+            dput_ref_err(d, mc.bad_err);
+            return;
+        };
+        dput_lit(d, STR_PTR("题面骨架"), STR_LEN("题面骨架"));
+        dput(d, sp, sn);
+        dput_lit(d, STR_PTR("物种「"), STR_LEN("物种「"));
+        dput(d, skel.rp[mc.bad_at], skel.rl[mc.bad_at]);
+        dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
+        dput_ref_err(d, mc.bad_err);
+        return;
+    };
+    if mc.code == 1 {
+        parse_species_ref(stud.rp[mc.bad_at], stud.rl[mc.bad_at], &rp);
+        dput(d, sp, sn);
+        dput_lit(d, STR_PTR("物种不一致：答案多出 "), STR_LEN("物种不一致：答案多出 "));
+        if rp.ok {
+            species_id_of(&rp.comp, rp.charge, &id);
+            dput_idbuf(d, &id);
+        } else {
+            dput(d, stud.rp[mc.bad_at], stud.rl[mc.bad_at]);
+        };
+        dput_lit(d, STR_PTR("（题面该侧无此物种）"), STR_LEN("（题面该侧无此物种）"));
+        return;
+    };
+    // code 2：缺失
+    parse_species_ref(skel.rp[mc.bad_at], skel.rl[mc.bad_at], &rp);
+    dput(d, sp, sn);
+    dput_lit(d, STR_PTR("物种不一致：答案缺少 "), STR_LEN("物种不一致：答案缺少 "));
+    if rp.ok {
+        species_id_of(&rp.comp, rp.charge, &id);
+        dput_idbuf(d, &id);
+    } else {
+        dput(d, skel.rp[mc.bad_at], skel.rl[mc.bad_at]);
+    };
+    dput_lit(d, STR_PTR("（题面该侧有此物种）"), STR_LEN("（题面该侧有此物种）"));
+}
+
+fn judge_value_eq(asn: u64, item: u64, d: &DBuf) -> bool {
+    let exp: u64 = jget(asn, STR_PTR("expect"), STR_LEN("expect"));
+    if exp == 0 {
+        dput_lit(d, STR_PTR("断言缺少 expect"), STR_LEN("断言缺少 expect"));
+        return false;
+    };
+    let ev = jget_str(exp, STR_PTR("value"), STR_LEN("value"));
+    if !ev.ok {
+        dput_lit(d, STR_PTR("expect.value 缺失或非字符串（数值须以有理数字符串给出）"), STR_LEN("expect.value 缺失或非字符串（数值须以有理数字符串给出）"));
+        return false;
+    };
+    let eu = jget_str(exp, STR_PTR("unit"), STR_LEN("unit"));
+    if !eu.ok {
+        dput_lit(d, STR_PTR("expect.unit 缺失"), STR_LEN("expect.unit 缺失"));
+        return false;
+    };
+    let tol_s = jget_str(asn, STR_PTR("tol"), STR_LEN("tol"));
+    if !tol_s.ok {
+        dput_lit(d, STR_PTR("断言缺少 tol（容差必须由题面显式给出，不默认）"), STR_LEN("断言缺少 tol（容差必须由题面显式给出，不默认）"));
+        return false;
+    };
+    if item == 0 {
+        dput_lit(d, STR_PTR("学生未作答（答案缺少对应条目）"), STR_LEN("学生未作答（答案缺少对应条目）"));
+        return false;
+    };
+    let iv: u64 = jget(item, STR_PTR("value"), STR_LEN("value"));
+    if iv == 0 {
+        dput_lit(d, STR_PTR("学生未作答（条目缺少 value）"), STR_LEN("学生未作答（条目缺少 value）"));
+        return false;
+    };
+    let vv = jget_str(iv, STR_PTR("value"), STR_LEN("value"));
+    if !vv.ok {
+        dput_lit(d, STR_PTR("答案 value.value 缺失或非字符串"), STR_LEN("答案 value.value 缺失或非字符串"));
+        return false;
+    };
+    let vu = jget_str(iv, STR_PTR("unit"), STR_LEN("unit"));
+    if !vu.ok {
+        dput_lit(d, STR_PTR("答案缺少 unit"), STR_LEN("答案缺少 unit"));
+        return false;
+    };
+    if !bytes_eq(vu.p, vu.n, eu.p, eu.n) {
+        dput_lit(d, STR_PTR("单位不一致：应为「"), STR_LEN("单位不一致：应为「"));
+        dput(d, eu.p, eu.n);
+        dput_lit(d, STR_PTR("」，实际为「"), STR_LEN("」，实际为「"));
+        dput(d, vu.p, vu.n);
+        dput_lit(d, STR_PTR("」"), STR_LEN("」"));
+        return false;
+    };
+    let re = rat_parse(ev.p, ev.n);
+    if !re.ok {
+        dput_lit(d, STR_PTR("题面 expect 数值不可解析为有理数：「"), STR_LEN("题面 expect 数值不可解析为有理数：「"));
+        dput(d, ev.p, ev.n);
+        dput_lit(d, STR_PTR("」"), STR_LEN("」"));
+        return false;
+    };
+    let rt2 = rat_parse(tol_s.p, tol_s.n);
+    if !rt2.ok {
+        dput_lit(d, STR_PTR("题面 tol 不可解析为有理数：「"), STR_LEN("题面 tol 不可解析为有理数：「"));
+        dput(d, tol_s.p, tol_s.n);
+        dput_lit(d, STR_PTR("」"), STR_LEN("」"));
+        return false;
+    };
+    if rt2.r.n < 0 {
+        dput_lit(d, STR_PTR("题面 tol 为负，断言无效"), STR_LEN("题面 tol 为负，断言无效"));
+        return false;
+    };
+    let rv = rat_parse(vv.p, vv.n);
+    if !rv.ok {
+        dput_lit(d, STR_PTR("答案数值不可解析为有理数：「"), STR_LEN("答案数值不可解析为有理数：「"));
+        dput(d, vv.p, vv.n);
+        dput_lit(d, STR_PTR("」（须为十进制或 p/q 字符串，不接受浮点近似写法如科学计数法）"), STR_LEN("」（须为十进制或 p/q 字符串，不接受浮点近似写法如科学计数法）"));
+        return false;
+    };
+    let diff = rat_absdiff(rv.r, re.r);
+    let ok: bool = rat_absdiff_le(rv.r, re.r, rt2.r);
+    let ex = jget_str(asn, STR_PTR("expr"), STR_LEN("expr"));
+    if ex.ok {
+        dput(d, ex.p, ex.n);
+        dput_lit(d, STR_PTR("："), STR_LEN("："));
+    };
+    if ok {
+        dput_lit(d, STR_PTR("数值正确：答案 "), STR_LEN("数值正确：答案 "));
+        dput_rat(d, rv.r);
+        dput_lit(d, STR_PTR(" 与期望 "), STR_LEN(" 与期望 "));
+        dput_rat(d, re.r);
+        dput_lit(d, STR_PTR(" 之差 "), STR_LEN(" 之差 "));
+        dput_rat(d, diff);
+        dput_lit(d, STR_PTR(" ≤ 容差 "), STR_LEN(" ≤ 容差 "));
+        dput_rat(d, rt2.r);
+        return true;
+    };
+    dput_lit(d, STR_PTR("数值错误：答案 "), STR_LEN("数值错误：答案 "));
+    dput_rat(d, rv.r);
+    dput_lit(d, STR_PTR(" 与期望 "), STR_LEN(" 与期望 "));
+    dput_rat(d, re.r);
+    dput_lit(d, STR_PTR(" 之差 "), STR_LEN(" 之差 "));
+    dput_rat(d, diff);
+    dput_lit(d, STR_PTR(" > 容差 "), STR_LEN(" > 容差 "));
+    dput_rat(d, rt2.r);
+    return false;
+}
+
+fn judge_species_eq(asn: u64, item: u64, d: &DBuf) -> bool {
+    let a = jget_str(asn, STR_PTR("a"), STR_LEN("a"));
+    if !a.ok {
+        dput_lit(d, STR_PTR("断言缺少 a"), STR_LEN("断言缺少 a"));
+        return false;
+    };
+    let b = JStr { ok: false, p: a.p, n: 0 };
+    let have_b: bool = false;
+    if item != 0 {
+        let ib = jget_str(item, STR_PTR("b"), STR_LEN("b"));
+        if ib.ok {
+            b = ib;
+            have_b = true;
+        };
+    };
+    if !have_b {
+        let ab = jget_str(asn, STR_PTR("b"), STR_LEN("b"));
+        if ab.ok {
+            b = ab;
+            have_b = true;
+        };
+    };
+    if !have_b {
+        dput_lit(d, STR_PTR("缺少比较对象 b（答案未提供、断言亦未给出）"), STR_LEN("缺少比较对象 b（答案未提供、断言亦未给出）"));
+        return false;
+    };
+    let ra = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    let rb = RefParse { ok: false, err: 0, pos: 0, comp: GComp { cnt: [0i64; 64] }, charge: 0 };
+    parse_species_ref(a.p, a.n, &ra);
+    if !ra.ok {
+        dput_lit(d, STR_PTR("题面物种「"), STR_LEN("题面物种「"));
+        dput(d, a.p, a.n);
+        dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
+        dput_ref_err(d, ra.err);
+        return false;
+    };
+    parse_species_ref(b.p, b.n, &rb);
+    if !rb.ok {
+        dput_lit(d, STR_PTR("答案物种「"), STR_LEN("答案物种「"));
+        dput(d, b.p, b.n);
+        dput_lit(d, STR_PTR("」无法解析："), STR_LEN("」无法解析："));
+        dput_ref_err(d, rb.err);
+        return false;
+    };
+    let ida = IdBuf { b: [0u8; 168], n: 0 };
+    let idb = IdBuf { b: [0u8; 168], n: 0 };
+    species_id_of(&ra.comp, ra.charge, &ida);
+    species_id_of(&rb.comp, rb.charge, &idb);
+    if idbuf_eq(&ida, &idb) {
+        dput_lit(d, STR_PTR("同一物种："), STR_LEN("同一物种："));
+        dput_idbuf(d, &ida);
+        return true;
+    };
+    dput_lit(d, STR_PTR("不同物种：题面为 "), STR_LEN("不同物种：题面为 "));
+    dput_idbuf(d, &ida);
+    dput_lit(d, STR_PTR("，答案为 "), STR_LEN("，答案为 "));
+    dput_idbuf(d, &idb);
+    let total: u64 = elem_count_total();
+    let i: u64 = 0;
+    while i < total {
+        if ra.comp.cnt[i] != rb.comp.cnt[i] {
+            let s = elem_sym_at(i);
+            dput_lit(d, STR_PTR("；元素 "), STR_LEN("；元素 "));
+            dput(d, s.p, s.n);
+            dput_lit(d, STR_PTR(" 计数："), STR_LEN(" 计数："));
+            dput_i64(d, ra.comp.cnt[i]);
+            dput_lit(d, STR_PTR(" ≠ "), STR_LEN(" ≠ "));
+            dput_i64(d, rb.comp.cnt[i]);
+        };
+        i = i + 1;
+    }
+    if ra.charge != rb.charge {
+        dput_lit(d, STR_PTR("；电荷："), STR_LEN("；电荷："));
+        dput_i64(d, ra.charge);
+        dput_lit(d, STR_PTR(" ≠ "), STR_LEN(" ≠ "));
+        dput_i64(d, rb.charge);
+    };
+    return false;
+}
+
+// ---------- CLI 主流程 ----------
+
+struct ReadRes { ok: bool, doc: u64 }
+
+fn read_json_file(p: ptr, n: u64) -> ReadRes {
+    let r = ReadRes { ok: false, doc: 0 };
+    let h: u64 = 0;
+    let rc: i32 = sa_std_fs_read_to_string(p, n, 16777216, &h);
+    if rc != 0 { return r; };
+    let dp: ptr = sa_fs_read_buffer_data(h);
+    let dn: u64 = sa_fs_read_buffer_len(h);
+    if dn == 0 { return r; };
+    let doc: u64 = sa_json_parse(dp, dn);
+    if doc == 0 { return r; };
+    r.ok = true;
+    r.doc = doc;
+    return r;
+}
+
+fn fatal(code: i64, mp: ptr, mn: u64) -> i32 {
+    out_lit(STR_PTR("{\"error\":"), STR_LEN("{\"error\":"));
+    out_jlit(mp, mn);
+    out_lit(STR_PTR("}\n"), STR_LEN("}\n"));
+    return code as i32;
+}
+
+fn judge_one(asn: u64, item: u64, d: &DBuf) -> bool {
+    if asn == 0 {
+        dput_lit(d, STR_PTR("断言缺失"), STR_LEN("断言缺失"));
+        return false;
+    };
+    if sa_json_kind(asn) != 7 {
+        dput_lit(d, STR_PTR("断言不是对象"), STR_LEN("断言不是对象"));
+        return false;
+    };
+    let kind = jget_str(asn, STR_PTR("kind"), STR_LEN("kind"));
+    if !kind.ok {
+        dput_lit(d, STR_PTR("断言缺少 kind"), STR_LEN("断言缺少 kind"));
+        return false;
+    };
+    if lit_eq(kind.p, kind.n, STR_PTR("balanced"), STR_LEN("balanced")) {
+        return judge_balanced(asn, item, d);
+    };
+    if lit_eq(kind.p, kind.n, STR_PTR("value_eq"), STR_LEN("value_eq")) {
+        return judge_value_eq(asn, item, d);
+    };
+    if lit_eq(kind.p, kind.n, STR_PTR("species_id_eq"), STR_LEN("species_id_eq")) {
+        return judge_species_eq(asn, item, d);
+    };
+    dput_lit(d, STR_PTR("未知断言 kind："), STR_LEN("未知断言 kind："));
+    dput(d, kind.p, kind.n);
+    dput_lit(d, STR_PTR("（v0.1 仅支持 balanced / value_eq / species_id_eq）"), STR_LEN("（v0.1 仅支持 balanced / value_eq / species_id_eq）"));
+    return false;
+}

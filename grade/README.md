@@ -121,3 +121,23 @@ FLOAT 仅以 kind 码形式被识别并拒绝。
 
 每题目录含 `problem.json / answer-ok.json / answer-bad.json /
 expect-ok.json / expect-bad.json`；`./run_samples.sh` 全链验收。
+
+## 批量并发判分（期二首项）
+
+判定核已拆分：`src/grade_lib.sla`（全部判定与输出助手，代码搬运零
+改动）+ `src/grade.sla`（单份 CLI，行为与 v0.1 逐字节一致，样例 8/8
+与拆分前构建逐字节对拍已实证）。
+
+`src/grade_batch.sla` 为批量入口（设计见仓根 `CONCURRENCY.md`）：
+`grade_batch <manifest.json>`，清单为 JSON 数组
+`[{"problem":"…","answer":"…"}, …]`（上限 128 份）。每份判定由一个
+goroutine 在本帧内私有完成，结果按清单原序确定性合并——批量 stdout
+逐字节等于各份单跑 `grade` 的 stdout 按序拼接。退出码：0 = 全部已
+判定；1 = 至少一份硬错误（该份以 `{"error":…}` 行呈现，与单跑的
+stdout 行一致；单跑的 stderr 提示与非零退出码语义收敛为此行 + 1）；
+2 = 用法错误；3 = 清单读取/解析失败。批量模式另有两条上限（响亮报
+错、呈现为该份的 error 行）：单题断言 > 24、problem_id > 512 字节。
+
+构建：`sla build-exe src/grade_batch.sla`（需 goroutine 语法批工具链，
+见 CONCURRENCY.md §4）。验收：`./run_batch_test.sh`（16 份混合清单
+含 3 份错误形态 × 5 轮与单跑拼接逐字节对拍）。
